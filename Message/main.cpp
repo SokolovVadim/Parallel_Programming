@@ -17,25 +17,21 @@ int main(int argc, char* argv[])
 	// std::cout << "ProcRank = " << ProcRank << std::endl;
 	// fflush(stdout);
 
+	// Process 0 starts conversation via sending msg to Process 1
 	if(ProcRank == 0)
-	{	//MPI_Send(&ProcRank, 1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD);
-		/*for(int i(0); i < ProcNum; ++i)
-		{
-			// std::cout << "I'm here!\n";
-			std::cout << "ProcRank: " << ProcRank << std::endl;
-			MPI_Send(&RecvRank, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
-			MPI_Recv(&RecvRank, 1, MPI_INT, i, MPI_ANY_TAG, MPI_COMM_WORLD, &Status);
-			std::cout << "I'm here!\n";
-			fflush(stdout);
-		}*/
+	{	
 		std::cout << "ProcRank: " << ProcRank << std::endl;
-		fflush(stdout);
+		fflush(stdout); // push data from buffer to stdout
 		MPI_Send(&RecvRank, 1, MPI_INT, ProcRank + 1, 0, MPI_COMM_WORLD);
 	}
 	else{
+		// Process n > 0 receives msg from Process n - 1
 		MPI_Recv(&RecvRank, 1, MPI_INT, ProcRank - 1, MPI_ANY_TAG, MPI_COMM_WORLD, &Status);
+		// Process n prints its rang
 		std::cout << "ProcRank: " << ProcRank << std::endl;
 		fflush(stdout);
+		// Process n != N - 1 sends msg to Process n + 1
+		// But actually it's possible to finalize the msg cicle to Process 0
 		if(ProcRank < ProcNum - 1)
 			MPI_Send(&RecvRank, 1, MPI_INT, ProcRank + 1, 0, MPI_COMM_WORLD);
 	}
