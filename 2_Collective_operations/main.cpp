@@ -49,65 +49,80 @@ double MeasurePerformanceBcast(){
 double MeasurePerformanceReduce(){
 
 	int snd_buf(0), recv_buf(0);
-	MPI_Barrier(MPI_COMM_WORLD); // !!!!!!!!!!!!
+	double squares(0.0), diff(0.0), average(0.0);
+	// MPI_Barrier(MPI_COMM_WORLD); // !!!!!!!!!!!!
 	
-	double begin = MPI_Wtime();
+	
 
 	for(int i(0); i < ITERATIONS; ++i)
 	{
+		double begin = MPI_Wtime();
 		MPI_Reduce(&snd_buf, &recv_buf, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
 		MPI_Barrier(MPI_COMM_WORLD);
+		double end = MPI_Wtime();
+		diff = end - begin;
+		average += diff;
+		squares += diff * diff;
 	}
 
-	double end = MPI_Wtime();
 	
-	double time_difference = (end - begin) / ITERATIONS;
-	return time_difference;
+	double disp = ((squares / ITERATIONS) - (average / ITERATIONS) * (average / ITERATIONS));
+	// double time_difference = (end - begin) / ITERATIONS;
+	return disp;
 }
 
 double MeasurePerformanceGather(){
+	double squares(0.0), diff(0.0), average(0.0);
 	int snd_buf(0);
-
 	int proc_rank(0);
 	MPI_Comm_rank(MPI_COMM_WORLD, &proc_rank);
 
 	int * recv_buf = new int[proc_rank];
-	MPI_Barrier(MPI_COMM_WORLD); // !!!!!!!!!!!!
+	// MPI_Barrier(MPI_COMM_WORLD); // !!!!!!!!!!!!
 	
-	double begin = MPI_Wtime();
 
 	for(int i(0); i < ITERATIONS; ++i)
 	{
 		// MPI_Barrier(MPI_COMM_WORLD);
+		double begin = MPI_Wtime();
 		MPI_Gather(&snd_buf, 1, MPI_INT, recv_buf, 1, MPI_INT, 0, MPI_COMM_WORLD);
 		MPI_Barrier(MPI_COMM_WORLD);
+		double end = MPI_Wtime();
+		diff = end - begin;
+		average += diff;
+		squares += diff * diff;
 	}
-	std::cout << "I'm here\n";
+	// std::cout << "I'm here\n";
 	delete[] recv_buf;
 
-	double end = MPI_Wtime();
+	// double end = MPI_Wtime();
 	
-	double time_difference = (end - begin) / ITERATIONS;
-	return time_difference;
+	// double time_difference = (end - begin) / ITERATIONS;
+	double disp = ((squares / ITERATIONS) - (average / ITERATIONS) * (average / ITERATIONS));
+	return disp;
 }
 
 double MeasurePerformanceScatter(){
 
 	int snd_buf(0), recv_buf(0);
-	MPI_Barrier(MPI_COMM_WORLD); // !!!!!!!!!!!!
+	double squares(0.0), diff(0.0), average(0.0);
+	// MPI_Barrier(MPI_COMM_WORLD); // !!!!!!!!!!!!
 	
-	double begin = MPI_Wtime();
+	
 
 	for(int i(0); i < ITERATIONS; ++i)
 	{
+		double begin = MPI_Wtime();
 		MPI_Scatter(&snd_buf, 1, MPI_INT, &recv_buf, 1, MPI_INT, 0, MPI_COMM_WORLD);
 		MPI_Barrier(MPI_COMM_WORLD);
+		double end = MPI_Wtime();
+		diff = end - begin;
+		average += diff;
+		squares += diff * diff;
 	}
 
-	double end = MPI_Wtime();
-	
-	double time_difference = (end - begin) / ITERATIONS;
-	return time_difference;
+	double disp = ((squares / ITERATIONS) - (average / ITERATIONS) * (average / ITERATIONS));
+	return disp;
 }
 
 
@@ -128,7 +143,7 @@ int main(int argc, char* argv[])
 		std::cout << "Number of processes = " << proc_num << std::endl;
 
 
-	double time_error = MeasurePerformanceBcast();
+	double time_error = MeasurePerformanceScatter();
 	MPI_Barrier(MPI_COMM_WORLD);
 	//std::cout << "time difference = " << time_difference << std::endl;
 	if(proc_rank == 0){
