@@ -115,11 +115,32 @@ int main(int argc, char* argv[])
 		std::cout << "Number of processes = " << proc_num << std::endl;
 
 
-	double time_error = MeasurePerformanceScatter();
+	double time_error = MeasurePerformanceBcast();
 	MPI_Barrier(MPI_COMM_WORLD);
 	
 	if(proc_rank == 0){
-		printf("MPI_Wtick \t= %.17g\ntime error \t= %.17g\n", MPI_Wtick(), time_error);
+		printf("MPI_Bcast performance measurement\nMPI_Wtick \t= %.17g\ntime error \t= %.17g\n", MPI_Wtick(), time_error);
+		fflush(stdout);
+	}
+	time_error = MeasurePerformanceReduce();
+	MPI_Barrier(MPI_COMM_WORLD);
+	
+	if(proc_rank == 0){
+		printf("MPI_Reduce performance measurement\ntime error \t= %.17g\n", time_error);
+		fflush(stdout);
+	}
+	time_error = MeasurePerformanceGather();
+	MPI_Barrier(MPI_COMM_WORLD);
+	
+	if(proc_rank == 0){
+		printf("MPI_Gather performance measurement\ntime error \t= %.17g\n", time_error);
+		fflush(stdout);
+	}
+	time_error = MeasurePerformanceScatter();
+	MPI_Barrier(MPI_COMM_WORLD);
+	
+	if(proc_rank == 0){
+		printf("MPI_Scatter performance measurement\ntime error \t= %.17g\n", time_error);
 		fflush(stdout);
 	}
 	
