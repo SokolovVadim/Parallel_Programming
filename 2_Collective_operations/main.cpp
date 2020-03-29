@@ -7,6 +7,12 @@ enum MEASUREMENT{
 	ITERATIONS = 1000000
 };
 
+/*typedef struct
+{
+	double time;
+	double disp;
+} Data;
+*/
 inline void Calculate_disp(double begin, double end, double & average, double & squares)
 {
 	double diff = end - begin;
@@ -15,7 +21,7 @@ inline void Calculate_disp(double begin, double end, double & average, double & 
 }
 
 // Measure performance of collective routine including the cost of barrier
-double MeasurePerformanceBcast(){
+std::pair<double, double> MeasurePerformanceBcast(){
 
 	int BcastRank(0);
 	double squares(0.0), average(0.0);
@@ -33,10 +39,10 @@ double MeasurePerformanceBcast(){
 	}
 	double disp = ((squares / ITERATIONS) - (average / ITERATIONS) * (average / ITERATIONS));
 
-	return disp;
+	return std::make_pair(average / ITERATIONS, disp);
 }
 
-double MeasurePerformanceReduce(){
+std::pair<double, double> MeasurePerformanceReduce(){
 
 	int snd_buf(0), recv_buf(0);
 	double squares(0.0), average(0.0);
@@ -52,10 +58,10 @@ double MeasurePerformanceReduce(){
 	}
 
 	double disp = ((squares / ITERATIONS) - (average / ITERATIONS) * (average / ITERATIONS));
-	return disp;
+	return std::make_pair(average / ITERATIONS, disp);
 }
 
-double MeasurePerformanceGather(){
+std::pair<double, double> MeasurePerformanceGather(){
 	double squares(0.0), average(0.0);
 	int snd_buf(0);
 	int proc_rank(0);
@@ -76,10 +82,10 @@ double MeasurePerformanceGather(){
 	delete[] recv_buf;
 
 	double disp = ((squares / ITERATIONS) - (average / ITERATIONS) * (average / ITERATIONS));
-	return disp;
+	return std::make_pair(average / ITERATIONS, disp);
 }
 
-double MeasurePerformanceScatter(){
+std::pair<double, double> MeasurePerformanceScatter(){
 
 	int snd_buf(0), recv_buf(0);
 	double squares(0.0), average(0.0);
@@ -95,7 +101,7 @@ double MeasurePerformanceScatter(){
 	}
 
 	double disp = ((squares / ITERATIONS) - (average / ITERATIONS) * (average / ITERATIONS));
-	return disp;
+	return std::make_pair(average / ITERATIONS, disp);
 }
 
 
@@ -115,32 +121,37 @@ int main(int argc, char* argv[])
 		std::cout << "Number of processes = " << proc_num << std::endl;
 
 
-	double time_error = MeasurePerformanceBcast();
+	std::pair<double, double> time = MeasurePerformanceBcast();
 	MPI_Barrier(MPI_COMM_WORLD);
 	
 	if(proc_rank == 0){
-		printf("MPI_Bcast performance measurement\nMPI_Wtick \t= %.17g\ntime error \t= %.17g\n", MPI_Wtick(), time_error);
+		printf("MPI_Bcast performance measurement\n"
+			"MPI_Wtick \t= %.17g\nTime elapsed \t= %.17g\ntime error \t= %.17g\n",
+		 MPI_Wtick(), time.first, time.second);
 		fflush(stdout);
 	}
-	time_error = MeasurePerformanceReduce();
+	time = MeasurePerformanceReduce();
 	MPI_Barrier(MPI_COMM_WORLD);
 	
 	if(proc_rank == 0){
-		printf("MPI_Reduce performance measurement\ntime error \t= %.17g\n", time_error);
+		printf("MPI_Reduce performance measurement\nTime elapsed \t= %.17g\ntime error \t= %.17g\n",
+		 time.first, time.second);
 		fflush(stdout);
 	}
-	time_error = MeasurePerformanceGather();
+	time = MeasurePerformanceGather();
 	MPI_Barrier(MPI_COMM_WORLD);
 	
 	if(proc_rank == 0){
-		printf("MPI_Gather performance measurement\ntime error \t= %.17g\n", time_error);
+		printf("MPI_Gather performance measurement\nTime elapsed \t= %.17g\ntime error \t= %.17g\n",
+		 time.first, time.second);
 		fflush(stdout);
 	}
-	time_error = MeasurePerformanceScatter();
+	time = MeasurePerformanceScatter();
 	MPI_Barrier(MPI_COMM_WORLD);
 	
 	if(proc_rank == 0){
-		printf("MPI_Scatter performance measurement\ntime error \t= %.17g\n", time_error);
+		printf("MPI_Scatter performance measurement\nTime elapsed \t= %.17g\ntime error \t= %.17g\n",
+		 time.first, time.second);
 		fflush(stdout);
 	}
 	
