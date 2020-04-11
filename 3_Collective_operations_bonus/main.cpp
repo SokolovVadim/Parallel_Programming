@@ -213,6 +213,10 @@ void My_Reduce(
     int root,
     MPI_Comm communicator)
 {
+	if(datatype != MPI::INT)
+	{
+		printf("error! this function requires only MPI::INT datatype!\n");
+	}
 	int world_rank(0), world_size(0);
 	MPI_Comm_rank(communicator, &world_rank);
 	MPI_Comm_size(communicator, &world_size);
@@ -277,6 +281,46 @@ void My_Scatter(
 		MPI_Recv(recv_data, recv_count, recv_datatype, root, MPI_ANY_TAG, communicator, MPI_STATUS_IGNORE);
 }
 
+// -----------------------------------------------------------------------------------------------------
+
+void My_Gather(
+    void* send_data,
+    int send_count,
+    MPI_Datatype send_datatype,
+    void* recv_data,
+    int recv_count,
+    MPI_Datatype recv_datatype,
+    int root,
+    MPI_Comm communicator)
+{
+	if(send_datatype != MPI::INT)
+	{
+		printf("error! this function requires only MPI::INT datatype!\n");
+	}
+	int world_rank(0), world_size(0);
+	MPI_Comm_rank(communicator, &world_rank);
+	MPI_Comm_size(communicator, &world_size);
+
+	// root receive pieces of data from other processes 
+	if(world_rank == root)
+	{
+		int* data = (int*)recv_data;
+		data[root] = *(int*)send_data;
+		for(int i(0); i < world_size; ++i)
+		{
+			if(i != root){
+				MPI_Recv(send_data, recv_count, recv_datatype, i, MPI_ANY_TAG, communicator, MPI_STATUS_IGNORE);
+				data[i] = *(int*)send_data;
+			}
+		}
+	}
+	else // other processes send data to root
+	{
+		MPI_Send(send_data, send_count, send_datatype, root, world_rank, communicator);
+	}
+}
+
+
 
 void TestOK(int argc, char** argv)
 {
@@ -307,7 +351,7 @@ void TestOK(int argc, char** argv)
 
 	// Test My_Scatter here
 
-	int* local(nullptr);
+	/*int* local(nullptr);
 	if(proc_rank == 0){
 		local = new int[proc_num];
 		for(int i(0); i < proc_num; ++i){
@@ -321,10 +365,27 @@ void TestOK(int argc, char** argv)
 	printf("received: %d\n", recv);
 	
 	if(proc_rank == 0)
-		delete[] local;
+		delete[] local;*/
 
+	// Test My_Gather here
 
+	/*int* data(nullptr);
+	if(proc_rank == 0){
+		data = new int[proc_num];
+	}
 	
+	int send_data(proc_rank);
+	My_Gather(&send_data, 1, MPI::INT, data, 1, MPI_INT, 0, MPI_COMM_WORLD);
+	
+	if(proc_rank == 0){
+		for(int i(0); i < proc_num; ++i)
+			printf("data[%d] = %d\n", i, data[i]);
+
+		delete[] data;
+	}*/
+
+
+
 	MPI_Finalize();
 }
 
