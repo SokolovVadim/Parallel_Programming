@@ -15,6 +15,16 @@ std::pair<double, double> MeasurePerformanceScatter();
 
 // -----------------------------------------------------------------------------------------------------
 
+void My_Bcast(void* data, int count, MPI_Datatype datatype, int root, MPI_Comm communicator);
+void My_Reduce(void* send_data, void* recv_data, int count,
+ MPI_Datatype datatype, MPI_Op op, int root, MPI_Comm communicator);
+void My_Gather(void* send_data, int send_count, MPI_Datatype send_datatype, void* recv_data,
+    int recv_count, MPI_Datatype recv_datatype, int root, MPI_Comm communicator);
+void My_Scatter(void* send_data, int send_count, MPI_Datatype send_datatype, void* recv_data,
+    int recv_count, MPI_Datatype recv_datatype, int root, MPI_Comm communicator);
+
+// -----------------------------------------------------------------------------------------------------
+
 inline void Calculate_disp(double begin, double end, double & average, double & squares)
 {
 	double diff = end - begin;
@@ -24,7 +34,7 @@ inline void Calculate_disp(double begin, double end, double & average, double & 
 
 // -----------------------------------------------------------------------------------------------------
 
-/*int main(int argc, char* argv[])
+int main(int argc, char* argv[])
 {
 	int proc_num(0), proc_rank(0);
 	// MPI code starts here
@@ -76,7 +86,7 @@ inline void Calculate_disp(double begin, double end, double & average, double & 
 	MPI_Finalize();
 
 	// MPI code ends here
-}*/
+}
 
 // Measure performance of collective routine including the cost of barrier
 std::pair<double, double> MeasurePerformanceBcast(){
@@ -88,7 +98,7 @@ std::pair<double, double> MeasurePerformanceBcast(){
 	{
 		double begin = MPI_Wtime();
 
-		MPI_Bcast(&BcastRank, 1, MPI_INT, 0, MPI_COMM_WORLD);
+		My_Bcast(&BcastRank, 1, MPI_INT, 0, MPI_COMM_WORLD);
 		MPI_Barrier(MPI_COMM_WORLD);
 
 		double end = MPI_Wtime();
@@ -110,7 +120,7 @@ std::pair<double, double> MeasurePerformanceReduce(){
 	for(int i(0); i < ITERATIONS; ++i)
 	{
 		double begin = MPI_Wtime();
-		MPI_Reduce(&snd_buf, &recv_buf, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+		My_Reduce(&snd_buf, &recv_buf, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
 		MPI_Barrier(MPI_COMM_WORLD);
 		double end = MPI_Wtime();
 
@@ -391,7 +401,7 @@ void TestOK(int argc, char** argv)
 
 // -----------------------------------------------------------------------------------------------------
 
-int main(int argc, char** argv)
+/*int main(int argc, char** argv)
 {
 	TestOK(argc, argv);
-}
+}*/
