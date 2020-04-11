@@ -144,7 +144,7 @@ std::pair<double, double> MeasurePerformanceGather(){
 	for(int i(0); i < ITERATIONS; ++i)
 	{
 		double begin = MPI_Wtime();
-		MPI_Gather(&snd_buf, 1, MPI_INT, recv_buf, 1, MPI_INT, 0, MPI_COMM_WORLD);
+		My_Gather(&snd_buf, 1, MPI_INT, recv_buf, 1, MPI_INT, 0, MPI_COMM_WORLD);
 		MPI_Barrier(MPI_COMM_WORLD);
 		double end = MPI_Wtime();
 
@@ -167,7 +167,7 @@ std::pair<double, double> MeasurePerformanceScatter(){
 	for(int i(0); i < ITERATIONS; ++i)
 	{
 		double begin = MPI_Wtime();
-		MPI_Scatter(&snd_buf, 1, MPI_INT, &recv_buf, 1, MPI_INT, 0, MPI_COMM_WORLD);
+		My_Scatter(&snd_buf, 1, MPI_INT, &recv_buf, 1, MPI_INT, 0, MPI_COMM_WORLD);
 		MPI_Barrier(MPI_COMM_WORLD);
 		double end = MPI_Wtime();
 
@@ -330,7 +330,7 @@ void My_Gather(
 	}
 }
 
-
+// -----------------------------------------------------------------------------------------------------
 
 void TestOK(int argc, char** argv)
 {
@@ -345,41 +345,41 @@ void TestOK(int argc, char** argv)
 
 	// test My_Bcast here
 
-	/*int value(713);
+	int value(713);
 	My_Bcast(&value, 1, MPI::INT, 0, MPI_COMM_WORLD);
-	printf("value: %d\n", value);*/
+	printf("value: %d\n", value);
 
 	// test My_Reduce here
-/*
+
 	int local(proc_rank + 1);
 	int prod(0);
 	My_Reduce(&local, &prod, 1, MPI_INT, MPI_PROD, 0, MPI_COMM_WORLD);
 	if(proc_rank == 0)
 	{
 		std::cout << "Prod: " << prod << std::endl;
-	}*/
+	}
 
 	// Test My_Scatter here
 
-	/*int* local(nullptr);
+	int* scat_data(nullptr);
 	if(proc_rank == 0){
-		local = new int[proc_num];
+		scat_data = new int[proc_num];
 		for(int i(0); i < proc_num; ++i){
-			local[i] = i;
+			scat_data[i] = i;
 		}
 	}
 	
 	int recv(0);
-	My_Scatter(local, 1, MPI::INT, &recv, 1, MPI_INT, 0, MPI_COMM_WORLD);
+	My_Scatter(scat_data, 1, MPI::INT, &recv, 1, MPI_INT, 0, MPI_COMM_WORLD);
 	
 	printf("received: %d\n", recv);
 	
 	if(proc_rank == 0)
-		delete[] local;*/
+		delete[] scat_data;
 
 	// Test My_Gather here
 
-	/*int* data(nullptr);
+	int* data(nullptr);
 	if(proc_rank == 0){
 		data = new int[proc_num];
 	}
@@ -392,7 +392,7 @@ void TestOK(int argc, char** argv)
 			printf("data[%d] = %d\n", i, data[i]);
 
 		delete[] data;
-	}*/
+	}
 
 
 
@@ -400,8 +400,3 @@ void TestOK(int argc, char** argv)
 }
 
 // -----------------------------------------------------------------------------------------------------
-
-/*int main(int argc, char** argv)
-{
-	TestOK(argc, argv);
-}*/
