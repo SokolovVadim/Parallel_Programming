@@ -2,6 +2,7 @@
 #include <mpi.h>
 #include <chrono>
 #include <cmath>
+#include <typeinfo>
 
 enum {ITERATIONS = 1000000 };
 
@@ -167,6 +168,7 @@ std::pair<double, double> MeasurePerformanceScatter(){
 	return std::make_pair(average / ITERATIONS, disp);
 }
 
+// -----------------------------------------------------------------------------------------------------
 
 /*
 MPI_STATUS_IGNORE passed to a receive function,
@@ -200,6 +202,8 @@ void My_Bcast(
 		MPI_Recv(data, count, datatype, root, 0, communicator, MPI_STATUS_IGNORE);
 }
 
+// -----------------------------------------------------------------------------------------------------
+
 void My_Reduce(
 	void* send_data,
     void* recv_data,
@@ -216,17 +220,19 @@ void My_Reduce(
 	// root receive data from other processes and show 
 	if(world_rank == root)
 	{
-		int prod(1);
-		for(int i(1); i < world_size; ++i)
+		int prod(*(int*)send_data);
+		for(int i(0); i < world_size; ++i)
 		{
-			MPI_Recv(send_data, count, datatype, i, MPI_ANY_TAG, communicator, MPI_STATUS_IGNORE);
-			prod *= *(int*)send_data;
+			if(i != root){
+				MPI_Recv(send_data, count, datatype, i, MPI_ANY_TAG, communicator, MPI_STATUS_IGNORE);
+				prod *= *(int*)send_data;
+			}
 		}
 		*(int*)recv_data = prod;
 	}
 	else // other processes send data to root
 	{
-		MPI_Send(send_data, count, datatype, 0, world_rank, communicator);
+		MPI_Send(send_data, count, datatype, root, world_rank, communicator);
 	}
 
 }
@@ -234,7 +240,45 @@ void My_Reduce(
 
 // -----------------------------------------------------------------------------------------------------
 
-int main(int argc, char* argv[])
+void My_Scatter(
+	void* send_data,
+    int send_count,
+    MPI_Datatype send_datatype,
+    void* recv_data,
+    int recv_count,
+    MPI_Datatype recv_datatype,
+    int root,
+    MPI_Comm communicator)
+{
+	if(send_datatype != MPI::INT)
+	{
+		printf("error! this function requires only MPI::INT datatype!\n");
+	}
+	int world_rank(0), world_size(0);
+	MPI_Comm_rank(communicator, &world_rank);
+	MPI_Comm_size(communicator, &world_size);
+
+
+	// root sends pieces of data to every process
+	void* ptr_to_send(nullptr);
+
+	if(world_rank == root)
+	{
+		for(int i(0); i < world_size; ++i)
+		{
+			if(i != root){
+				ptr_to_send = (void*)((int*)send_data + i * send_count);
+				MPI_Send(ptr_to_send, send_count, send_datatype, i, world_rank, communicator);
+			}
+		}
+		recv_data = send_data;
+	}
+	else// other processes receive data from root
+		MPI_Recv(recv_data, recv_count, recv_datatype, root, MPI_ANY_TAG, communicator, MPI_STATUS_IGNORE);
+}
+
+
+void TestOK(int argc, char** argv)
 {
 	int proc_num(0), proc_rank(0);
 	// MPI code starts here
@@ -245,27 +289,48 @@ int main(int argc, char* argv[])
 	MPI_Comm_size(MPI_COMM_WORLD, &proc_num);
 	MPI_Comm_rank(MPI_COMM_WORLD, &proc_rank);
 
-	// test My_Reduce here
+	// test My_Bcast here
 
+	/*int value(713);
+	My_Bcast(&value, 1, MPI::INT, 0, MPI_COMM_WORLD);
+	printf("value: %d\n", value);*/
+
+	// test My_Reduce here
+/*
 	int local(proc_rank + 1);
 	int prod(0);
 	My_Reduce(&local, &prod, 1, MPI_INT, MPI_PROD, 0, MPI_COMM_WORLD);
 	if(proc_rank == 0)
 	{
 		std::cout << "Prod: " << prod << std::endl;
-	}
+	}*/
 
+	// Test My_Scatter here
+
+	int* local(nullptr);
+	if(proc_rank == 0){
+		local = new int[proc_num];
+		for(int i(0); i < proc_num; ++i){
+			local[i] = i;
+		}
+	}
+	
+	int recv(0);
+	My_Scatter(local, 1, MPI::INT, &recv, 1, MPI_INT, 0, MPI_COMM_WORLD);
+	
+	printf("received: %d\n", recv);
+	
+	if(proc_rank == 0)
+		delete[] local;
+
+
+	
 	MPI_Finalize();
 }
 
+// -----------------------------------------------------------------------------------------------------
 
-/*
-if (world_rank == 0) {
-  printf("Total sum = %f, avg = %f\n", global_sum,
-         global_sum / (world_size * num_elements_per_proc));
+int main(int argc, char** argv)
+{
+	TestOK(argc, argv);
 }
-
-*/
-
-
-
