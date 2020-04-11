@@ -77,24 +77,6 @@ inline void Calculate_disp(double begin, double end, double & average, double & 
 	// MPI code ends here
 }*/
 
-// -----------------------------------------------------------------------------------------------------
-
-int main(int argc, char* argv[])
-{
-	int proc_num(0), proc_rank(0);
-	// MPI code starts here
-	int error = MPI_Init(&argc, &argv);
-	if(error)
-		std::cerr << "MPI_Init crashed" << std::endl;
-
-	// test My_Reduce here
-
-	MPI_Finalize();
-}
-
-
-
-
 // Measure performance of collective routine including the cost of barrier
 std::pair<double, double> MeasurePerformanceBcast(){
 
@@ -227,7 +209,6 @@ void My_Reduce(
     int root,
     MPI_Comm communicator)
 {
-
 	int world_rank(0), world_size(0);
 	MPI_Comm_rank(communicator, &world_rank);
 	MPI_Comm_size(communicator, &world_size);
@@ -235,10 +216,13 @@ void My_Reduce(
 	// root receive data from other processes and show 
 	if(world_rank == root)
 	{
-		for(int i(0); i < world_size; ++i)
+		int prod(1);
+		for(int i(1); i < world_size; ++i)
 		{
-			MPI_Recv(recv_data, count, datatype, root, 0, communicator, MPI_STATUS_IGNORE);
+			MPI_Recv(send_data, count, datatype, i, MPI_ANY_TAG, communicator, MPI_STATUS_IGNORE);
+			prod *= *(int*)send_data;
 		}
+		*(int*)recv_data = prod;
 	}
 	else // other processes send data to root
 	{
@@ -246,4 +230,42 @@ void My_Reduce(
 	}
 
 }
+
+
+// -----------------------------------------------------------------------------------------------------
+
+int main(int argc, char* argv[])
+{
+	int proc_num(0), proc_rank(0);
+	// MPI code starts here
+	int error = MPI_Init(&argc, &argv);
+	if(error)
+		std::cerr << "MPI_Init crashed" << std::endl;
+
+	MPI_Comm_size(MPI_COMM_WORLD, &proc_num);
+	MPI_Comm_rank(MPI_COMM_WORLD, &proc_rank);
+
+	// test My_Reduce here
+
+	int local(proc_rank + 1);
+	int prod(0);
+	My_Reduce(&local, &prod, 1, MPI_INT, MPI_PROD, 0, MPI_COMM_WORLD);
+	if(proc_rank == 0)
+	{
+		std::cout << "Prod: " << prod << std::endl;
+	}
+
+	MPI_Finalize();
+}
+
+
+/*
+if (world_rank == 0) {
+  printf("Total sum = %f, avg = %f\n", global_sum,
+         global_sum / (world_size * num_elements_per_proc));
+}
+
+*/
+
+
 
