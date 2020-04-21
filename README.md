@@ -29,5 +29,7 @@ Accuracy in measurement has to be on the order of `MPI_Wtick()` precision.
 ## Task 4
 
 Calculate sum of the series via N processes.
-![task](https://github.com/SokolovVadim/Parallel_Programming/tree/master/4_Series_sum/resources/series.png)
+
+![task](https://github.com/SokolovVadim/Parallel_Programming/blob/master/4_Series_sum/resources/series.png)
+
 The task is to get the most out of accuracy in calculations according to float data representation standart
