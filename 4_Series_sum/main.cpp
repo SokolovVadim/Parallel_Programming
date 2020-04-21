@@ -34,18 +34,31 @@ int main(int argc, char* argv[])
 		std::cout << length << std::endl;
 	}
 
+
 	MPI_Bcast(&length, 1, MPI::LONG, 0, MPI_COMM_WORLD);
+
+	// start time measurement
+	double start(0.0), end(0.0);
+	MPI_Barrier(MPI_COMM_WORLD);
+	if(proc_rank == 0)
+		start = MPI_Wtime();
 	
 	double sum = CalculateSeries(length);
 	// printf("sum[%d] = %lf\n", proc_rank, sum);
 
-	// MPI_Barrier(MPI_COMM_WORLD);
+	
 
 	double total_sum(0.0);
 	MPI_Reduce(&sum, &total_sum, 1, MPI::DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+
+	// end time measurement
+	MPI_Barrier(MPI_COMM_WORLD);
+
 	if(proc_rank == 0)
 	{
-		printf("total_sum = %lf\n", total_sum);
+		end = MPI_Wtime();
+		double time = end - start;
+		printf("total_sum = %lf, time = %lf\n", total_sum, time);
 	}
 	
 	MPI_Finalize();
