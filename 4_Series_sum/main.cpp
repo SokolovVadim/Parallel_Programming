@@ -2,12 +2,12 @@
 #include <mpi.h>
 #include <stdexcept>
 #include <climits>
-#include <assert.h>
 #include <cmath>
 
-long int ParceInput(int argc, char* argv[]);
-long int ReadArg(char * str);
-double CalculateSeries(long int length);
+enum { MULTYPLIER = 2 << 20 };
+
+long int ReadArg        (char * str);
+double   CalculateSeries(long int length);
 
 // -----------------------------------------------------------------------------------------------------
 
@@ -25,16 +25,14 @@ int main(int argc, char* argv[])
 
 	MPI_Comm_size(MPI_COMM_WORLD, &proc_num);
 	MPI_Comm_rank(MPI_COMM_WORLD, &proc_rank);
-	if(proc_rank == 0)
-		std::cout << "Number of processes = " << proc_num << std::endl;
 
 	long int length(0);
 	if(proc_rank == 0)
 	{
-		length = ParceInput(argc, argv);
-		std::cout << length << std::endl;
+		if(argc != 2)
+			throw std::runtime_error("Invalid number of arguments!");
+		length = ReadArg(argv[1]);
 	}
-
 
 	MPI_Bcast(&length, 1, MPI::LONG, 0, MPI_COMM_WORLD);
 
@@ -45,7 +43,6 @@ int main(int argc, char* argv[])
 		start = MPI_Wtime();
 	
 	double sum = CalculateSeries(length);
-	// printf("sum[%d] = %lf\n", proc_rank, sum);
 
 	double total_sum(0.0);
 	MPI_Reduce(&sum, &total_sum, 1, MPI::DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
@@ -55,7 +52,7 @@ int main(int argc, char* argv[])
 
 	if(proc_rank == 0)
 	{
-		total_sum = (total_sum * 6.0) / (M_PI * M_PI);
+		total_sum = (total_sum * 6.0) / ( MULTYPLIER * M_PI * M_PI);
 		end = MPI_Wtime();
 		double time = end - start;
 		printf("total_sum = %lf, time = %lf\n", total_sum, time);
@@ -71,15 +68,6 @@ int main(int argc, char* argv[])
 }
 
 // -----------------------------------------------------------------------------------------------------
-
-long int ParceInput(int argc, char* argv[])
-{
-	if(argc != 2)
-		throw std::runtime_error("Invalid number of arguments!");
-	long int length = ReadArg(argv[1]);
-	return length;
-}
-
 
 long int ReadArg(char * str)
 {
@@ -109,6 +97,7 @@ long int ReadArg(char * str)
 	return number;
 }
 
+// -----------------------------------------------------------------------------------------------------
 
 double CalculateSeries(long int length)
 {
@@ -122,16 +111,16 @@ double CalculateSeries(long int length)
 	long int interval_begin = interval * proc_rank + 1;
 	long int interval_end = interval_begin + interval;
 
-	// printf("proc[%d]: %ld, %ld\n", proc_rank, interval_begin, interval_end);
+	// MULTYPLIER is used to reduce calculating error when length is very big
 
-	int i(0);
-	for(i = interval_begin; i < interval_end; ++i)
-		sum += 1 / (double(i) * double(i));
+	// calcule local sum on interval [interval_begin; interval_end]
+	for(int i = interval_end - 1; i >= interval_begin; --i)
+		sum += MULTYPLIER / (double(i) * double(i));
+	// calculate the rest of interval that is determined by length % proc_num
 	if(proc_rank == proc_num - 1)
 	{
-		for(; i <= length; ++i)
-			sum += 1 / (double(i) * double(i));
+		for(int j = length; j >= interval_end; --j)
+			sum += MULTYPLIER / (double(j) * double(j));
 	}
-
 	return sum;
 }
