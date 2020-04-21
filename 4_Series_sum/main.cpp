@@ -3,6 +3,7 @@
 #include <stdexcept>
 #include <climits>
 #include <assert.h>
+#include <cmath>
 
 long int ParceInput(int argc, char* argv[]);
 long int ReadArg(char * str);
@@ -46,8 +47,6 @@ int main(int argc, char* argv[])
 	double sum = CalculateSeries(length);
 	// printf("sum[%d] = %lf\n", proc_rank, sum);
 
-	
-
 	double total_sum(0.0);
 	MPI_Reduce(&sum, &total_sum, 1, MPI::DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
 
@@ -56,6 +55,7 @@ int main(int argc, char* argv[])
 
 	if(proc_rank == 0)
 	{
+		total_sum = (total_sum * 6.0) / (M_PI * M_PI);
 		end = MPI_Wtime();
 		double time = end - start;
 		printf("total_sum = %lf, time = %lf\n", total_sum, time);
@@ -126,11 +126,11 @@ double CalculateSeries(long int length)
 
 	int i(0);
 	for(i = interval_begin; i < interval_end; ++i)
-		sum += i;
+		sum += 1 / (double(i) * double(i));
 	if(proc_rank == proc_num - 1)
 	{
 		for(; i <= length; ++i)
-			sum += i;
+			sum += 1 / (double(i) * double(i));
 	}
 
 	return sum;
