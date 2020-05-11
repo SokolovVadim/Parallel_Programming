@@ -21,7 +21,13 @@ int main(int argc, char* argv[])
 	MPI_Comm_size(MPI_COMM_WORLD, &proc_num);
 	MPI_Comm_rank(MPI_COMM_WORLD, &proc_rank);
 
-	
+	long int length(0);
+	if(proc_rank == 0)
+	{
+		if(argc != 2)
+			throw std::runtime_error("Invalid number of arguments!");
+		
+	}
 	
 	MPI_Finalize();
 
@@ -31,4 +37,6 @@ int main(int argc, char* argv[])
 		std::cout << err.what() << std::endl;
 	}
 }
+
+// -----------------------------------------------------------------------------------------------------
 
