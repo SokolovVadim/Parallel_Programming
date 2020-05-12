@@ -69,6 +69,8 @@ typedef struct {
 } task_t;
 
 long int ReadArg(char * str);
+int RootRoutine(int size, int tasksNumber, status_t status, task_t & localTask, double & startTime);
+int SlaveRoutine(int rank);
 
 int main(int argc, char* argv[])
 {
@@ -80,7 +82,6 @@ int main(int argc, char* argv[])
   int size = 0;
   double startTime = 0;
   double endTime = 0;
-  int i = 0;
   int error = MPI_Init(&argc, &argv);
   if(error)
 	std::cerr << "MPI_Init crashed" << std::endl;
@@ -103,6 +104,29 @@ int main(int argc, char* argv[])
       MPI_Finalize();
       return 0;
     }
+    RootRoutine(size, tasksNumber, status, localTask, startTime);
+  }
+  else
+  {
+  	SlaveRoutine(rank);
+  }
+
+
+  // Finish
+  MPI_Barrier(MPI_COMM_WORLD);
+  if (rank == 0)
+  {
+    endTime = MPI_Wtime();
+    printf("[TIME RES] %lf\n", endTime - startTime);
+  }
+
+  MPI_Finalize();
+  return 0;
+}
+
+int RootRoutine(int size, int tasksNumber, status_t status, task_t & localTask, double & startTime)
+{
+	// Root branch
 
     std::cout << size << " argv[1] = " << tasksNumber << std::endl;
     // Send status of arguments
@@ -114,13 +138,17 @@ int main(int argc, char* argv[])
     int localLen = tasksNumber / (size - 1);
     int rest = tasksNumber % (size - 1);
   
-    task_t* taskShedule = (task_t*)malloc(size * sizeof(task_t));
-
+    task_t* taskShedule = (task_t*)calloc(size, sizeof(task_t));
+    if(taskShedule == nullptr)
+    {
+    	std::cout << "memory allocation failed!" << std::endl;
+    	return 0;
+    }
 
     int taskPointer = 0;
     printf("Shedule : ");
 
-    for (i = 1; i < size; i++)
+    for (int i = 1; i < size; i++)
     {
       taskShedule[i].start = taskPointer;
       taskPointer += localLen;
@@ -137,13 +165,14 @@ int main(int argc, char* argv[])
     // Send tasks for work begin
     startTime = MPI_Wtime();
     MPI_Scatter(taskShedule, 2, MPI_INT, &localTask, 2, MPI_INT, 0, MPI_COMM_WORLD);
-  }
-  else
-  {
-    // Slave branch
-    //
-    // Check status
-    MPI_Bcast(&status, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    return 0;
+}
+
+int SlaveRoutine(int rank)
+{
+	status_t status = FAIL;
+	task_t localTask = {};
+	MPI_Bcast(&status, 1, MPI_INT, 0, MPI_COMM_WORLD);
     if (status == FAIL)
     {
       MPI_Finalize();
@@ -155,27 +184,15 @@ int main(int argc, char* argv[])
     //printf("[%d] Get %d..%d\n", rank, localTask.start, localTask.end - 1);
 
     // Calc task
-    startTime = MPI_Wtime();
+    double startTime = MPI_Wtime();
     
-    for (i = localTask.start; i < localTask.end; i++)
+    for (int i = localTask.start; i < localTask.end; i++)
     {
       sleep(rank);
     }
-    endTime = MPI_Wtime();
+    double endTime = MPI_Wtime();
     printf("[TIME %d] %lf\n", rank, endTime - startTime);
-  }
-
-
-  // Finish
-  MPI_Barrier(MPI_COMM_WORLD);
-  if (rank == 0)
-  {
-    endTime = MPI_Wtime();
-    printf("[TIME RES] %lf\n", endTime - startTime);
-  }
-
-  MPI_Finalize();
-  return 0;
+    return 0;
 }
 
 long int ReadArg(char * str)
