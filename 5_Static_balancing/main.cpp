@@ -23,49 +23,23 @@ typedef struct {
 // -----------------------------------------------------------------------------------------------------
 
 long int ReadArg     (char * str);
-void*    RootRoutine (int size, int tasksNumber, status_t status, task_t & localTask, double & startTime);
+void*    RootRoutine (int size, status_t status, task_t & localTask, double & startTime, int* first, int* second);
 int      SlaveRoutine(int rank);
-void ReadNumbers(char* in, int size)
-{
-	std::ifstream fin(in);
-	int length(0);
-	std::string s_first, s_second;
+void  ReadNumbers (char* in, int size, int** first, int* second);
 
-	fin >> length >> s_first >> s_second;
-	std::cout << length << std::endl << s_first << std::endl << s_second << std::endl;
-	int token_size = length / size;
-
-	int * a_first  = new int[token_size];
-	int * a_second = new int[token_size];
-
-	for(int i(0); i < size; ++i)
-	{
-		std::string s_token = s_first.substr(i * token_size, token_size);
-		a_first[i]  = std::stoi(s_token);
-
-		s_token = s_second.substr(i * token_size, token_size);
-		a_second[i] = std::stoi(s_token);
-	}
-	for(int i(0); i < size; ++i)
-	{
-		std::cout << a_first[i] << " " << a_second[i] << std::endl;
-	}
-
-	fin.close();
-}
 
 // -----------------------------------------------------------------------------------------------------
 
 int main(int argc, char* argv[])
 {
+  int* first(nullptr);
+  int* second(nullptr);
   status_t status = FAIL;
   task_t localTask = {};
-  int tasksNumber = 0;
   int rank = 0;
   int size = 0;
   double startTime = 0;
   double endTime = 0;
-  task_t* taskShedule(nullptr);
 
   int error = MPI_Init(&argc, &argv);
   if(error)
@@ -80,7 +54,7 @@ int main(int argc, char* argv[])
     // Root branch
     //
     // Check arguments
-    if (argc != 4 || (tasksNumber = ReadArg(argv[1])) < 1)
+    if (argc != 3)
     {
       printf("Usage:\n required 1 argument (> 0) for tasks number\n");
       // Exit with fail status
@@ -89,8 +63,8 @@ int main(int argc, char* argv[])
       MPI_Finalize();
       return 0;
     }
-    ReadNumbers(argv[2], size);
-    RootRoutine(size, tasksNumber, status, localTask, startTime);
+    ReadNumbers(argv[1], size, &first, second);
+    RootRoutine(size, status, localTask, startTime, first, second);
   }
   else
   {
@@ -102,10 +76,11 @@ int main(int argc, char* argv[])
   MPI_Barrier(MPI_COMM_WORLD);
   if (rank == 0)
   {
-    endTime = MPI_Wtime();
-    printf("[TIME RES] %lf\n", endTime - startTime);
+    // endTime = MPI_Wtime();
+    // printf("[TIME RES] %lf\n", endTime - startTime);
     
-    delete[] taskShedule;
+    delete[] first;
+    delete[] second;
   }
 
   MPI_Finalize();
@@ -114,46 +89,22 @@ int main(int argc, char* argv[])
 
 // -----------------------------------------------------------------------------------------------------
 
-void* RootRoutine(int size, int tasksNumber, status_t status, task_t & localTask, double & startTime)
+void* RootRoutine(int size, status_t status, task_t & localTask, double & startTime, int* first, int* second)
 {
 	// Root branch
     // Send status of arguments
     status = OK;
     MPI_Bcast(&status, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    for(int i(0); i < 2 * (size - 1); ++i)
+    	std::cout << first[i] << std::endl;
 
-   
-    // Prepare slave's tasks
-    int localLen = tasksNumber / (size - 1);
-    int rest = tasksNumber % (size - 1);
-  
-    task_t* taskShedule = new task_t[size];
-    if(taskShedule == nullptr)
-    {
-    	std::cout << "memory allocation failed!" << std::endl;
-    	return NULL;
-    }
-
-    int taskPointer = 0;
-    printf("Shedule : ");
-
-    for (int i = 1; i < size; i++)
-    {
-      taskShedule[i].start = taskPointer;
-      taskPointer += localLen;
-      if (i < (rest + 1))
-      {
-        taskPointer++;
-      }
-      taskShedule[i].end = taskPointer;
-      printf("[%d] %d(%d..%d) ", i, taskShedule[i].end - taskShedule[i].start\
-                                ,taskShedule[i].start, taskShedule[i].end - 1);
-    }
-    printf("\n");
+    MPI_Scatter(first, 2, MPI_INT, NULL, 0, MPI_INT, 0, MPI_COMM_WORLD);
+    
 
     // Send tasks for work begin
     startTime = MPI_Wtime();
-    MPI_Scatter(taskShedule, 2, MPI_INT, &localTask, 2, MPI_INT, 0, MPI_COMM_WORLD);
-    return taskShedule;
+    // MPI_Scatter(taskShedule, 2, MPI_INT, &localTask, 2, MPI_INT, 0, MPI_COMM_WORLD);
+    return NULL;//taskShedule;
 }
 
 // -----------------------------------------------------------------------------------------------------
@@ -161,27 +112,28 @@ void* RootRoutine(int size, int tasksNumber, status_t status, task_t & localTask
 int SlaveRoutine(int rank)
 {
 	status_t status = FAIL;
-	task_t localTask = {};
+	
 	MPI_Bcast(&status, 1, MPI_INT, 0, MPI_COMM_WORLD);
     if (status == FAIL)
     {
       MPI_Finalize();
       return 0;
     }
+
+    int* numbers = new int[2];
     
     // Get tasks
-    MPI_Scatter(NULL, 0, 0, &localTask, 2, MPI_INT, 0, MPI_COMM_WORLD);
-    //printf("[%d] Get %d..%d\n", rank, localTask.start, localTask.end - 1);
+    MPI_Scatter(nullptr, 0, 0, numbers, 2, MPI_INT, 0, MPI_COMM_WORLD);
+    
 
     // Calc task
     double startTime = MPI_Wtime();
+
+    int result = numbers[0] + numbers[1];
+    printf("result = %d\n", result);
     
-    for (int i = localTask.start; i < localTask.end; i++)
-    {
-      sleep(rank);
-    }
+   
     double endTime = MPI_Wtime();
-    printf("[TIME %d] %lf\n", rank, endTime - startTime);
     return 0;
 }
 
@@ -213,4 +165,38 @@ long int ReadArg(char * str)
    	}
 
 	return number;
+}
+
+// -----------------------------------------------------------------------------------------------------
+
+void ReadNumbers(char* in, int size, int** first, int* a_second)
+{
+	std::ifstream fin(in);
+	int length(0);
+	std::string s_first, s_second;
+
+	fin >> length >> s_first >> s_second;
+	std::cout << length << std::endl << s_first << std::endl << s_second << std::endl;
+	int token_size = length / (size - 1);
+
+	int* a_first  = new int[token_size];
+	a_second = new int[token_size];
+
+	for(int i(0), j(0); i < size - 1; ++i)
+	{
+		std::string s_token = s_first.substr(i * token_size, token_size);
+		a_first[j]  = std::stoi(s_token);
+
+		s_token = s_second.substr(i * token_size, token_size);
+		a_second[i] = std::stoi(s_token);
+		a_first[j + 1] = std::stoi(s_token);
+		j += 2;
+	}
+/*	for(int i(0); i < 2 * (size - 1); ++i)
+	{
+		std::cout << a_first[i] <<  std::endl;
+	}*/
+	*first = a_first;
+
+	fin.close();
 }
