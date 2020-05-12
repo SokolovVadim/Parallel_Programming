@@ -4,6 +4,11 @@
 #include <malloc.h>
 #include <climits>
 #include <fstream>
+#include <string>
+
+// -----------------------------------------------------------------------------------------------------
+
+enum { TOKEN_SIZE = 9 };
 
 typedef enum {
   OK = 0,
@@ -15,22 +20,53 @@ typedef struct {
   int end;
 } task_t;
 
-long int ReadArg(char * str);
-void* RootRoutine(int size, int tasksNumber, status_t status, task_t & localTask, double & startTime);
-int SlaveRoutine(int rank);
+// -----------------------------------------------------------------------------------------------------
+
+long int ReadArg     (char * str);
+void*    RootRoutine (int size, int tasksNumber, status_t status, task_t & localTask, double & startTime);
+int      SlaveRoutine(int rank);
+void ReadNumbers(char* in, int size)
+{
+	std::ifstream fin(in);
+	int length(0);
+	std::string s_first, s_second;
+
+	fin >> length >> s_first >> s_second;
+	std::cout << length << std::endl << s_first << std::endl << s_second << std::endl;
+	int token_size = length / size;
+
+	int * a_first  = new int[token_size];
+	int * a_second = new int[token_size];
+
+	for(int i(0); i < size; ++i)
+	{
+		std::string s_token = s_first.substr(i * token_size, token_size);
+		a_first[i]  = std::stoi(s_token);
+
+		s_token = s_second.substr(i * token_size, token_size);
+		a_second[i] = std::stoi(s_token);
+	}
+	for(int i(0); i < size; ++i)
+	{
+		std::cout << a_first[i] << " " << a_second[i] << std::endl;
+	}
+
+	fin.close();
+}
+
+// -----------------------------------------------------------------------------------------------------
 
 int main(int argc, char* argv[])
 {
-
   status_t status = FAIL;
-  int tasksNumber = 0;
   task_t localTask = {};
+  int tasksNumber = 0;
   int rank = 0;
   int size = 0;
   double startTime = 0;
   double endTime = 0;
   task_t* taskShedule(nullptr);
-  std::ifstream fin;
+
   int error = MPI_Init(&argc, &argv);
   if(error)
 	std::cerr << "MPI_Init crashed" << std::endl;
@@ -53,7 +89,7 @@ int main(int argc, char* argv[])
       MPI_Finalize();
       return 0;
     }
-    fin.open(argv[2]);
+    ReadNumbers(argv[2], size);
     RootRoutine(size, tasksNumber, status, localTask, startTime);
   }
   else
@@ -68,13 +104,15 @@ int main(int argc, char* argv[])
   {
     endTime = MPI_Wtime();
     printf("[TIME RES] %lf\n", endTime - startTime);
-    fin.close();
+    
     delete[] taskShedule;
   }
 
   MPI_Finalize();
   return 0;
 }
+
+// -----------------------------------------------------------------------------------------------------
 
 void* RootRoutine(int size, int tasksNumber, status_t status, task_t & localTask, double & startTime)
 {
@@ -118,6 +156,8 @@ void* RootRoutine(int size, int tasksNumber, status_t status, task_t & localTask
     return taskShedule;
 }
 
+// -----------------------------------------------------------------------------------------------------
+
 int SlaveRoutine(int rank)
 {
 	status_t status = FAIL;
@@ -144,6 +184,8 @@ int SlaveRoutine(int rank)
     printf("[TIME %d] %lf\n", rank, endTime - startTime);
     return 0;
 }
+
+// -----------------------------------------------------------------------------------------------------
 
 long int ReadArg(char * str)
 {
