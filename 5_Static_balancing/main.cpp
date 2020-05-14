@@ -39,7 +39,7 @@ int main(int argc, char* argv[])
   int rank = 0;
   int size = 0;
   double startTime = 0;
-  double endTime = 0;
+  // double endTime = 0;
 
   int error = MPI_Init(&argc, &argv);
   if(error)
@@ -98,7 +98,9 @@ void* RootRoutine(int size, status_t status, task_t & localTask, double & startT
     for(int i(0); i < 2 * (size - 1); ++i)
     	std::cout << first[i] << std::endl;
 
-    MPI_Scatter(first, 2, MPI_INT, NULL, 0, MPI_INT, 0, MPI_COMM_WORLD);
+    // MPI_Scatter(first, 2, MPI_INT, NULL, 0, MPI_INT, 0, MPI_COMM_WORLD);
+    for(int i(1), j(0); i < size; ++i, j += 2)
+    	MPI_Send(&first[j], 2, MPI_INT, i, 0, MPI_COMM_WORLD);
     
 
     // Send tasks for work begin
@@ -123,48 +125,19 @@ int SlaveRoutine(int rank)
     int* numbers = new int[2];
     
     // Get tasks
-    MPI_Scatter(nullptr, 0, 0, numbers, 2, MPI_INT, 0, MPI_COMM_WORLD);
-    
+    // MPI_Scatter(nullptr, 0, 0, numbers, 2, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Status mpi_status;
+    MPI_Recv(numbers, 2, MPI_INT, 0, 0, MPI_COMM_WORLD, &mpi_status);
 
     // Calc task
-    double startTime = MPI_Wtime();
+    // double startTime = MPI_Wtime();
 
     int result = numbers[0] + numbers[1];
     printf("result = %d\n", result);
     
    
-    double endTime = MPI_Wtime();
+    // double endTime = MPI_Wtime();
     return 0;
-}
-
-// -----------------------------------------------------------------------------------------------------
-
-long int ReadArg(char * str)
-{
-	char* endptr;
-	errno = 0;
-
-	long int number = strtol(str, &endptr, 10);
-
-	
-	if ((errno == ERANGE && (number == LONG_MAX || number == LONG_MIN)) || (errno != 0 && number == 0)) 
-	{
-       		perror("strtol");
-        	exit(EXIT_FAILURE);
-   	}
-
-	if (endptr == str)
-	{
-        	fprintf(stderr, "Error!\n");
-        	exit(EXIT_FAILURE);
-   	}
-	if (*endptr != '\0')
-	{
-        	fprintf(stderr, "Error!\n");
-        	exit(EXIT_FAILURE);
-   	}
-
-	return number;
 }
 
 // -----------------------------------------------------------------------------------------------------
@@ -199,4 +172,34 @@ void ReadNumbers(char* in, int size, int** first, int* a_second)
 	*first = a_first;
 
 	fin.close();
+}
+
+// -----------------------------------------------------------------------------------------------------
+
+long int ReadArg(char * str)
+{
+	char* endptr;
+	errno = 0;
+
+	long int number = strtol(str, &endptr, 10);
+
+	
+	if ((errno == ERANGE && (number == LONG_MAX || number == LONG_MIN)) || (errno != 0 && number == 0)) 
+	{
+       		perror("strtol");
+        	exit(EXIT_FAILURE);
+   	}
+
+	if (endptr == str)
+	{
+        	fprintf(stderr, "Error!\n");
+        	exit(EXIT_FAILURE);
+   	}
+	if (*endptr != '\0')
+	{
+        	fprintf(stderr, "Error!\n");
+        	exit(EXIT_FAILURE);
+   	}
+
+	return number;
 }
