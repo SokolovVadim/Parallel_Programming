@@ -34,21 +34,21 @@ struct Numbers{
 // -----------------------------------------------------------------------------------------------------
 
 long int ReadArg     (char * str);
-void*    RootRoutine (int size, status_t status, task_t & localTask, double & startTime, int* first, int* second);
+void*    RootRoutine (int size, status_t status, double & startTime, Numbers* numbers, int token_number);
 int      SlaveRoutine(int rank);
-void  ReadNumbers (char* in, int size, Numbers* numbers);
+int  	 ReadNumbers (char* in, int size, Numbers* numbers);
 
 
 // -----------------------------------------------------------------------------------------------------
 
 int main(int argc, char* argv[])
 {
-  Numbers numbers;
+  Numbers* numbers(nullptr);
   status_t status = FAIL;
   //task_t localTask = {};
   int rank = 0;
   int size = 0;
-  //double startTime = 0;
+  double startTime = 0;
   // double endTime = 0;
 
   int error = MPI_Init(&argc, &argv);
@@ -73,8 +73,8 @@ int main(int argc, char* argv[])
       MPI_Finalize();
       return 0;
     }
-    ReadNumbers(argv[1], size, &numbers);
-    // RootRoutine(size, status, localTask, startTime, first, second);
+    int token_number = ReadNumbers(argv[1], size, numbers);
+    // RootRoutine(size, status, startTime, numbers, token_number);
   }
   else
   {
@@ -110,18 +110,30 @@ int main(int argc, char* argv[])
 
 // -----------------------------------------------------------------------------------------------------
 
-void* RootRoutine(int size, status_t status, task_t & localTask, double & startTime, int* first, int* second)
+void* RootRoutine(int size, status_t status, double & startTime, Numbers* numbers, int token_number)
 {
 	// Root branch
     // Send status of arguments
     status = OK;
     MPI_Bcast(&status, 1, MPI_INT, 0, MPI_COMM_WORLD);
-    for(int i(0); i < 2 * (size - 1); ++i)
-    	std::cout << first[i] << std::endl;
+
+    for(int i(0); i < size - 1; ++i)
+		for(int j(0); j < token_number; ++j)
+		{
+			std::cout << numbers[i].first[j] << " " << numbers[i].second[j] << std::endl;
+		}
 
     // MPI_Scatter(first, 2, MPI_INT, NULL, 0, MPI_INT, 0, MPI_COMM_WORLD);
-    for(int i(1), j(0); i < size; ++i, j += 2)
-    	MPI_Send(&first[j], 2, MPI_INT, i, 0, MPI_COMM_WORLD);
+	/*int * send_container = new int[2 * token_number];
+
+	for(int i(0), j(0); i < token_number; ++i, j += 2)
+	{
+		send_container[i] = numbers[i].first[]
+	}*/
+    for(int i(1); i < size; ++i)
+    {
+    	MPI_Send(numbers[i].first, token_number, MPI_INT, i, 0, MPI_COMM_WORLD);
+    }
     
 
     // Send tasks for work begin
@@ -166,7 +178,7 @@ int SlaveRoutine(int rank)
 
 // -----------------------------------------------------------------------------------------------------
 
-void ReadNumbers(char* in, int size, Numbers* numbers)
+int ReadNumbers(char* in, int size, Numbers* numbers)
 {
 	std::ifstream fin(in);
 	int length(0);
@@ -186,21 +198,6 @@ void ReadNumbers(char* in, int size, Numbers* numbers)
 
 	std::cout << "token_size = " << token_size << " token_num = " << token_number << std::endl;
 
-
-/*	int* a_first  = new int[token_size];
-	a_second = new int[token_size];*/
-
-/*	for(int i(0), j(0); i < size - 1; ++i)
-	{
-		std::string s_token = s_first.substr(i * token_size, token_size);
-		a_first[j]  = std::stoi(s_token);
-
-		s_token = s_second.substr(i * token_size, token_size);
-		a_second[i] = std::stoi(s_token);
-		a_first[j + 1] = std::stoi(s_token);
-		j += 2;
-	}*/
-
 	for(int i(0); i < size - 1; ++i)
 	{
 		for(int j(0); j < token_number; ++j)
@@ -212,8 +209,12 @@ void ReadNumbers(char* in, int size, Numbers* numbers)
 			numbers[i].second[j] = std::stoi(s_token);
 		}
 	}
-
-	//*first = a_first;
+	/*for(int i(0); i < size - 1; ++i)
+		for(int j(0); j < token_number; ++j)
+		{
+			std::cout << numbers[i].first[j] << " " << numbers[i].second[j] << std::endl;
+		}*/
+	return token_number;
 }
 
 // -----------------------------------------------------------------------------------------------------
