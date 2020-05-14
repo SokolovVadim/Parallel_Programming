@@ -20,25 +20,35 @@ typedef struct {
   int end;
 } task_t;
 
+struct Numbers{
+	int* first;
+	int* second;
+	Numbers() {}
+	Numbers(int size)
+	{
+		first  = new int[size];
+		second = new int[size];
+	}
+};
+
 // -----------------------------------------------------------------------------------------------------
 
 long int ReadArg     (char * str);
 void*    RootRoutine (int size, status_t status, task_t & localTask, double & startTime, int* first, int* second);
 int      SlaveRoutine(int rank);
-void  ReadNumbers (char* in, int size, int** first, int* second);
+void  ReadNumbers (char* in, int size, Numbers* numbers);
 
 
 // -----------------------------------------------------------------------------------------------------
 
 int main(int argc, char* argv[])
 {
-  int* first(nullptr);
-  int* second(nullptr);
+  Numbers numbers;
   status_t status = FAIL;
-  task_t localTask = {};
+  //task_t localTask = {};
   int rank = 0;
   int size = 0;
-  double startTime = 0;
+  //double startTime = 0;
   // double endTime = 0;
 
   int error = MPI_Init(&argc, &argv);
@@ -63,12 +73,12 @@ int main(int argc, char* argv[])
       MPI_Finalize();
       return 0;
     }
-    ReadNumbers(argv[1], size, &first, second);
-    RootRoutine(size, status, localTask, startTime, first, second);
+    ReadNumbers(argv[1], size, &numbers);
+    // RootRoutine(size, status, localTask, startTime, first, second);
   }
   else
   {
-  	SlaveRoutine(rank);
+  	// SlaveRoutine(rank);
   }
 
 
@@ -78,9 +88,20 @@ int main(int argc, char* argv[])
   {
     // endTime = MPI_Wtime();
     // printf("[TIME RES] %lf\n", endTime - startTime);
-    
-    delete[] first;
-    delete[] second;
+
+ /*   int * data = new int[size - 1];
+    MPI_Status mpi_status;
+    for(int i(1); i < size; i++)
+    {
+    	MPI_Recv(&data[i - 1], 2, MPI_INT, i, 0, MPI_COMM_WORLD, &mpi_status);
+    }
+    for(int i(0); i < size - 1; ++i)
+    {
+    	std::cout << "data[i] = " << data[i] << std::endl;
+    }
+
+    delete[] data;*/
+ 
   }
 
   MPI_Finalize();
@@ -137,25 +158,39 @@ int SlaveRoutine(int rank)
     
    
     // double endTime = MPI_Wtime();
+
+    // send result to root
+    MPI_Send(&result, 1, MPI_INT, 0, 0, MPI_COMM_WORLD);
     return 0;
 }
 
 // -----------------------------------------------------------------------------------------------------
 
-void ReadNumbers(char* in, int size, int** first, int* a_second)
+void ReadNumbers(char* in, int size, Numbers* numbers)
 {
 	std::ifstream fin(in);
 	int length(0);
 	std::string s_first, s_second;
 
 	fin >> length >> s_first >> s_second;
+
+	fin.close();
+
 	std::cout << length << std::endl << s_first << std::endl << s_second << std::endl;
 	int token_size = length / (size - 1);
+	int token_number = token_size / TOKEN_SIZE;
 
-	int* a_first  = new int[token_size];
-	a_second = new int[token_size];
+	numbers = new Numbers[size - 1];
+	for(int i(0); i < size - 1; ++i)
+		numbers[i] = Numbers(token_number);
 
-	for(int i(0), j(0); i < size - 1; ++i)
+	std::cout << "token_size = " << token_size << " token_num = " << token_number << std::endl;
+
+
+/*	int* a_first  = new int[token_size];
+	a_second = new int[token_size];*/
+
+/*	for(int i(0), j(0); i < size - 1; ++i)
 	{
 		std::string s_token = s_first.substr(i * token_size, token_size);
 		a_first[j]  = std::stoi(s_token);
@@ -164,14 +199,21 @@ void ReadNumbers(char* in, int size, int** first, int* a_second)
 		a_second[i] = std::stoi(s_token);
 		a_first[j + 1] = std::stoi(s_token);
 		j += 2;
-	}
-/*	for(int i(0); i < 2 * (size - 1); ++i)
-	{
-		std::cout << a_first[i] <<  std::endl;
 	}*/
-	*first = a_first;
 
-	fin.close();
+	for(int i(0); i < size - 1; ++i)
+	{
+		for(int j(0); j < token_number; ++j)
+		{
+			std::string s_token = s_first.substr(i * token_size + j * TOKEN_SIZE, TOKEN_SIZE);
+			numbers[i].first[j] = std::stoi(s_token);
+
+			s_token = s_second.substr(i * token_size + j * TOKEN_SIZE, TOKEN_SIZE);
+			numbers[i].second[j] = std::stoi(s_token);
+		}
+	}
+
+	//*first = a_first;
 }
 
 // -----------------------------------------------------------------------------------------------------
