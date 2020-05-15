@@ -36,7 +36,7 @@ struct Numbers{
 long int ReadArg     (char * str);
 void*    RootRoutine (int size, status_t status, double & startTime, Numbers* numbers, int token_number);
 int      SlaveRoutine(int rank);
-int  	 ReadNumbers (char* in, int size, Numbers* numbers);
+int  	 ReadNumbers (char* in, int size, Numbers** numbers);
 
 
 // -----------------------------------------------------------------------------------------------------
@@ -49,6 +49,7 @@ int main(int argc, char* argv[])
   int rank = 0;
   int size = 0;
   double startTime = 0;
+  int token_number(0);
   // double endTime = 0;
 
   int error = MPI_Init(&argc, &argv);
@@ -73,12 +74,12 @@ int main(int argc, char* argv[])
       MPI_Finalize();
       return 0;
     }
-    int token_number = ReadNumbers(argv[1], size, numbers);
-    // RootRoutine(size, status, startTime, numbers, token_number);
+    token_number = ReadNumbers(argv[1], size, &numbers);
+    RootRoutine(size, status, startTime, numbers, token_number);
   }
   else
   {
-  	// SlaveRoutine(rank);
+  	SlaveRoutine(rank);
   }
 
 
@@ -89,19 +90,19 @@ int main(int argc, char* argv[])
     // endTime = MPI_Wtime();
     // printf("[TIME RES] %lf\n", endTime - startTime);
 
- /*   int * data = new int[size - 1];
+    int* data = new int[token_number * (size - 1)];
+
     MPI_Status mpi_status;
     for(int i(1); i < size; i++)
     {
-    	MPI_Recv(&data[i - 1], 2, MPI_INT, i, 0, MPI_COMM_WORLD, &mpi_status);
+    	MPI_Recv(&data[token_number * (i - 1)], token_number, MPI_INT, i, 0, MPI_COMM_WORLD, &mpi_status);
     }
-    for(int i(0); i < size - 1; ++i)
+    for(int i(0); i < token_number * (size - 1); ++i)
     {
-    	std::cout << "data[i] = " << data[i] << std::endl;
+    	std::cout << data[i];
     }
-
-    delete[] data;*/
- 
+    std::cout << std::endl;
+    delete[] data;
   }
 
   MPI_Finalize();
@@ -117,11 +118,13 @@ void* RootRoutine(int size, status_t status, double & startTime, Numbers* number
     status = OK;
     MPI_Bcast(&status, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
+
     for(int i(0); i < size - 1; ++i)
 		for(int j(0); j < token_number; ++j)
 		{
 			std::cout << numbers[i].first[j] << " " << numbers[i].second[j] << std::endl;
 		}
+
 
     // MPI_Scatter(first, 2, MPI_INT, NULL, 0, MPI_INT, 0, MPI_COMM_WORLD);
 	/*int * send_container = new int[2 * token_number];
@@ -132,7 +135,10 @@ void* RootRoutine(int size, status_t status, double & startTime, Numbers* number
 	}*/
     for(int i(1); i < size; ++i)
     {
-    	MPI_Send(numbers[i].first, token_number, MPI_INT, i, 0, MPI_COMM_WORLD);
+    	MPI_Send(&token_number, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
+    	MPI_Send(numbers[i - 1].first,  token_number, MPI_INT, i, 0, MPI_COMM_WORLD);
+    	MPI_Send(numbers[i - 1].second, token_number, MPI_INT, i, 0, MPI_COMM_WORLD);
+    	// MPI_Send(&token_number, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
     }
     
 
@@ -155,30 +161,37 @@ int SlaveRoutine(int rank)
       return 0;
     }
 
-    int* numbers = new int[2];
+    // int* numbers = new int[2];
+    int token_number(0);
     
     // Get tasks
     // MPI_Scatter(nullptr, 0, 0, numbers, 2, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Status mpi_status;
-    MPI_Recv(numbers, 2, MPI_INT, 0, 0, MPI_COMM_WORLD, &mpi_status);
+    MPI_Recv(&token_number, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, &mpi_status);
+
+    int* first = new int[token_number];
+    int* second = new int[token_number];
+    int* sum = new int[token_number]; // +1
+
+	MPI_Recv(first, token_number, MPI_INT, 0, 0, MPI_COMM_WORLD, &mpi_status);
+    MPI_Recv(second, token_number, MPI_INT, 0, 0, MPI_COMM_WORLD, &mpi_status);
 
     // Calc task
     // double startTime = MPI_Wtime();
-
-    int result = numbers[0] + numbers[1];
-    printf("result = %d\n", result);
+    for(int i(0); i < token_number; ++i)
+    	sum[i] = first[i] + second[i];
     
    
     // double endTime = MPI_Wtime();
 
     // send result to root
-    MPI_Send(&result, 1, MPI_INT, 0, 0, MPI_COMM_WORLD);
+    MPI_Send(sum, token_number, MPI_INT, 0, 0, MPI_COMM_WORLD);
     return 0;
 }
 
 // -----------------------------------------------------------------------------------------------------
 
-int ReadNumbers(char* in, int size, Numbers* numbers)
+int ReadNumbers(char* in, int size, Numbers** numbers_)
 {
 	std::ifstream fin(in);
 	int length(0);
@@ -192,7 +205,7 @@ int ReadNumbers(char* in, int size, Numbers* numbers)
 	int token_size = length / (size - 1);
 	int token_number = token_size / TOKEN_SIZE;
 
-	numbers = new Numbers[size - 1];
+	Numbers* numbers = new Numbers[size - 1];
 	for(int i(0); i < size - 1; ++i)
 		numbers[i] = Numbers(token_number);
 
@@ -214,6 +227,7 @@ int ReadNumbers(char* in, int size, Numbers* numbers)
 		{
 			std::cout << numbers[i].first[j] << " " << numbers[i].second[j] << std::endl;
 		}*/
+	*numbers_ = numbers;
 	return token_number;
 }
 
