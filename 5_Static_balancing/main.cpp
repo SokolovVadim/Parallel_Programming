@@ -8,7 +8,11 @@
 
 // -----------------------------------------------------------------------------------------------------
 
-enum { TOKEN_SIZE = 9 };
+enum TOKEN
+{
+	TOKEN_SIZE = 9,
+	MAX_TOKEN_VALUE = 999999999
+};
 
 typedef enum {
   OK = 0,
@@ -151,9 +155,24 @@ void* RootRoutine(int size, status_t status, double & startTime, Numbers* number
 
 // -----------------------------------------------------------------------------------------------------
 
-void CalculateSum(int * first, int* second, int* sum)
+void CalculateSum(int * first, int* second, int* total_sum, int token_number)
 {
-
+	int digit_transfer(0);
+	for(int i(token_number - 1); i >= 0; --i)
+	{
+		int local_sum = first[i] + second[i] + digit_transfer;
+		std::cout << "local_sum = " << local_sum << std::endl;
+		if(local_sum > MAX_TOKEN_VALUE)
+		{
+			digit_transfer = 1;
+			total_sum[i] = local_sum - (MAX_TOKEN_VALUE + 1);
+		}
+		else
+		{
+			digit_transfer = 0;
+			total_sum[i] = local_sum;
+		}
+	}
 }
 
 // -----------------------------------------------------------------------------------------------------
@@ -169,11 +188,8 @@ int SlaveRoutine(int rank)
       return 0;
     }
 
-    // int* numbers = new int[2];
     int token_number(0);
-    
-    // Get tasks
-    // MPI_Scatter(nullptr, 0, 0, numbers, 2, MPI_INT, 0, MPI_COMM_WORLD);
+   
     MPI_Status mpi_status;
     MPI_Recv(&token_number, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, &mpi_status);
 
@@ -181,13 +197,14 @@ int SlaveRoutine(int rank)
     int* second = new int[token_number];
     int* sum    = new int[token_number]; // +1
 
-	MPI_Recv(first, token_number, MPI_INT, 0, 0, MPI_COMM_WORLD, &mpi_status);
+	MPI_Recv(first, token_number,  MPI_INT, 0, 0, MPI_COMM_WORLD, &mpi_status);
     MPI_Recv(second, token_number, MPI_INT, 0, 0, MPI_COMM_WORLD, &mpi_status);
 
     // Calc task
     // double startTime = MPI_Wtime();
-    for(int i(0); i < token_number; ++i)
-    	sum[i] = first[i] + second[i];
+    /*for(int i(0); i < token_number; ++i)
+    	sum[i] = first[i] + second[i];*/
+    CalculateSum(first, second, sum, token_number);
     
    
     // double endTime = MPI_Wtime();
