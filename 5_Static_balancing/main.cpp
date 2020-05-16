@@ -76,6 +76,7 @@ int main(int argc, char* argv[])
     }
     token_number = ReadNumbers(argv[1], size, &numbers);
     RootRoutine(size, status, startTime, numbers, token_number);
+    delete numbers;
   }
   else
   {
@@ -150,6 +151,13 @@ void* RootRoutine(int size, status_t status, double & startTime, Numbers* number
 
 // -----------------------------------------------------------------------------------------------------
 
+void CalculateSum(int * first, int* second, int* sum)
+{
+
+}
+
+// -----------------------------------------------------------------------------------------------------
+
 int SlaveRoutine(int rank)
 {
 	status_t status = FAIL;
@@ -169,9 +177,9 @@ int SlaveRoutine(int rank)
     MPI_Status mpi_status;
     MPI_Recv(&token_number, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, &mpi_status);
 
-    int* first = new int[token_number];
+    int* first  = new int[token_number];
     int* second = new int[token_number];
-    int* sum = new int[token_number]; // +1
+    int* sum    = new int[token_number]; // +1
 
 	MPI_Recv(first, token_number, MPI_INT, 0, 0, MPI_COMM_WORLD, &mpi_status);
     MPI_Recv(second, token_number, MPI_INT, 0, 0, MPI_COMM_WORLD, &mpi_status);
@@ -186,6 +194,9 @@ int SlaveRoutine(int rank)
 
     // send result to root
     MPI_Send(sum, token_number, MPI_INT, 0, 0, MPI_COMM_WORLD);
+    delete[] first;
+    delete[] second;
+    delete[] sum;
     return 0;
 }
 
