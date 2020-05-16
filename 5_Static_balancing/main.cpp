@@ -39,8 +39,9 @@ struct Numbers{
 
 long int ReadArg     (char * str);
 void*    RootRoutine (int size, status_t status, double & startTime, Numbers* numbers, int token_number);
-int      SlaveRoutine(int rank);
+int      SlaveRoutine(int rank, int size);
 int  	 ReadNumbers (char* in, int size, Numbers** numbers);
+int 	 CalculateSum(int * first, int* second, int* total_sum, int token_number);
 
 
 // -----------------------------------------------------------------------------------------------------
@@ -84,7 +85,7 @@ int main(int argc, char* argv[])
   }
   else
   {
-  	SlaveRoutine(rank);
+  	SlaveRoutine(rank, size);
   }
 
 
@@ -155,29 +156,38 @@ void* RootRoutine(int size, status_t status, double & startTime, Numbers* number
 
 // -----------------------------------------------------------------------------------------------------
 
-void CalculateSum(int * first, int* second, int* total_sum, int token_number)
+void switch_path(int rank, int size, int * first, int* second, int token_number)
 {
-	int digit_transfer(0);
-	for(int i(token_number - 1); i >= 0; --i)
+    MPI_Status mpi_status;
+	if(rank == 1){  // first worker
+    	// just snd to next and to root
+    	// MPI_Send(rank + 1, token_number, MPI_INT, rank + 1, 0, MPI_COMM_WORLD);
+    } else if(rank == size - 1){ // last worker
+    	// just recv from prev and snd to root
+    	MPI_Recv(second, token_number, MPI_INT, rank - 1, 0, MPI_COMM_WORLD, &mpi_status);
+    } else{ // recv from prev, choose the path and send to next & root
+		MPI_Recv(second, token_number, MPI_INT, rank - 1, 0, MPI_COMM_WORLD, &mpi_status);
+    }
+}
+
+// -----------------------------------------------------------------------------------------------------
+
+void AddOne(int* first, int* second, int* sum, int token_number)
+{
+	if(token_number == 1)
 	{
-		int local_sum = first[i] + second[i] + digit_transfer;
-		std::cout << "local_sum = " << local_sum << std::endl;
-		if(local_sum > MAX_TOKEN_VALUE)
-		{
-			digit_transfer = 1;
-			total_sum[i] = local_sum - (MAX_TOKEN_VALUE + 1);
-		}
-		else
-		{
-			digit_transfer = 0;
-			total_sum[i] = local_sum;
-		}
+		sum[0] = 0;
+		sum[1] = 1;
+	}
+	else
+	{
+		sum[token_number - 1] = 0;
 	}
 }
 
 // -----------------------------------------------------------------------------------------------------
 
-int SlaveRoutine(int rank)
+int SlaveRoutine(int rank, int size)
 {
 	status_t status = FAIL;
 	
@@ -195,17 +205,62 @@ int SlaveRoutine(int rank)
 
     int* first  = new int[token_number];
     int* second = new int[token_number];
-    int* sum    = new int[token_number]; // +1
+    int* sum    = new int[token_number + 1]; // +1
+    int* speculative_sum(nullptr);
 
 	MPI_Recv(first, token_number,  MPI_INT, 0, 0, MPI_COMM_WORLD, &mpi_status);
     MPI_Recv(second, token_number, MPI_INT, 0, 0, MPI_COMM_WORLD, &mpi_status);
 
-    // Calc task
     // double startTime = MPI_Wtime();
-    /*for(int i(0); i < token_number; ++i)
-    	sum[i] = first[i] + second[i];*/
-    CalculateSum(first, second, sum, token_number);
-    
+    if(first[token_number - 1] + second[token_number - 1] == MAX_TOKEN_VALUE) // speculative case
+    {
+    	int digit_transfer = CalculateSum(first, second, sum, token_number);
+    	if(rank == 1){  // first worker
+    		// just snd to next and to root, no need for speculative calculations
+    		MPI_Send(&digit_transfer, 1, MPI_INT, rank + 1, 0, MPI_COMM_WORLD);
+    		MPI_Send(sum, token_number, MPI_INT, 0, 0, MPI_COMM_WORLD);
+    	} else if(rank == size - 1){ // last worker
+    	// just recv from prev and snd to root
+    		speculative_sum = new int[token_number];
+    		AddOne(first, second, sum, token_number);
+    		// first[token_number - 1] = 0; 
+    		int digit_transfer_speculative = CalculateSum(first, second, speculative_sum, token_number);
+    		int digit_transfer_prev(0);
+    		MPI_Recv(&digit_transfer_prev, 1, MPI_INT, rank - 1, 0, MPI_COMM_WORLD, &mpi_status);
+    		if(digit_transfer_prev == 0)
+    		{
+    			MPI_Send(sum, token_number, MPI_INT, 0, 0, MPI_COMM_WORLD);
+    		}
+    		else
+    		{
+    			MPI_Send(speculative_sum, token_number, MPI_INT, 0, 0, MPI_COMM_WORLD);
+    		}
+    		delete[] speculative_sum;
+    	} else{ // recv from prev, choose the path and send to next & root
+    		speculative_sum = new int[token_number];
+    		first[token_number - 1] = 0; 
+    		int digit_transfer_speculative = CalculateSum(first, second, speculative_sum, token_number);
+    		int digit_transfer_prev(0);
+    		MPI_Recv(&digit_transfer_prev, 1, MPI_INT, rank - 1, 0, MPI_COMM_WORLD, &mpi_status);
+    		if(digit_transfer_prev == 0)
+    		{
+    			MPI_Send(&digit_transfer, 1, MPI_INT, rank + 1, 0, MPI_COMM_WORLD);
+    			MPI_Send(sum, token_number, MPI_INT, 0, 0, MPI_COMM_WORLD);
+    		}
+    		else
+    		{
+    			MPI_Send(&digit_transfer_speculative, 1, MPI_INT, rank + 1, 0, MPI_COMM_WORLD);
+    			MPI_Send(speculative_sum, token_number, MPI_INT, 0, 0, MPI_COMM_WORLD);
+    		}
+    		delete[] speculative_sum;
+    	}
+    }
+    else
+    {
+    	CalculateSum(first, second, sum, token_number);
+    }
+
+    /*CalculateSum(first, second, sum, token_number);*/
    
     // double endTime = MPI_Wtime();
 
@@ -215,6 +270,29 @@ int SlaveRoutine(int rank)
     delete[] second;
     delete[] sum;
     return 0;
+}
+
+// -----------------------------------------------------------------------------------------------------
+
+int CalculateSum(int * first, int* second, int* total_sum, int token_number)
+{
+	int digit_transfer(0);
+	for(int i(token_number - 1); i >= 0; --i)
+	{
+		int local_sum = first[i] + second[i] + digit_transfer;
+		// std::cout << "local_sum = " << local_sum << std::endl;
+		if(local_sum > MAX_TOKEN_VALUE)
+		{
+			digit_transfer = 1;
+			total_sum[i] = local_sum - (MAX_TOKEN_VALUE + 1);
+		}
+		else
+		{
+			digit_transfer = 0;
+			total_sum[i] = local_sum;
+		}
+	}
+	return digit_transfer;
 }
 
 // -----------------------------------------------------------------------------------------------------
