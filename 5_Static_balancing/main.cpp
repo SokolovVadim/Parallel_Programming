@@ -40,8 +40,8 @@ struct Numbers{
 // -----------------------------------------------------------------------------------------------------
 
 long int ReadArg     (char * str);
-void*    RootRoutine (int size, status_t status, double & startTime, Numbers* numbers, int token_number);
-int      SlaveRoutine(int rank, int size, std::ofstream & fout);
+double   RootRoutine (int size, status_t status, Numbers* numbers, int token_number);
+double   SlaveRoutine(int rank, int size, std::ofstream & fout);
 int  	 ReadNumbers (char* in, int size, Numbers** numbers);
 int 	 CalculateSum(int * first, int* second, int* total_sum, int token_number);
 std::string NumToStr(const int number);
@@ -57,9 +57,9 @@ int main(int argc, char* argv[])
   //task_t localTask = {};
   int rank = 0;
   int size = 0;
-  double startTime = 0;
+  
   int token_number(0);
-  // double endTime = 0;
+  double startTime(0);
 
   int error = MPI_Init(&argc, &argv);
   if(error)
@@ -67,13 +67,12 @@ int main(int argc, char* argv[])
 
   MPI_Comm_size(MPI_COMM_WORLD, &size);
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  if(rank == 0)
-  	std::cout << size << std::endl;
   if (rank == 0)
   {
     // Root branch
     //
     // Check arguments
+    startTime = MPI_Wtime();
     if (argc != 3)
     {
       printf("Usage:\n required 1 argument (> 0) for tasks number\n");
@@ -84,12 +83,13 @@ int main(int argc, char* argv[])
       return 0;
     }
     token_number = ReadNumbers(argv[1], size, &numbers);
-    RootRoutine(size, status, startTime, numbers, token_number);
+    RootRoutine(size, status, numbers, token_number);
     delete numbers;
   }
   else
   {
-  	SlaveRoutine(rank, size, fout);
+		double time = SlaveRoutine(rank, size, fout);
+		printf("rank[%d]: %lf\n", rank, time);
   }
 
 
@@ -97,22 +97,10 @@ int main(int argc, char* argv[])
   MPI_Barrier(MPI_COMM_WORLD);
   if (rank == 0)
   {
-    // endTime = MPI_Wtime();
-    // printf("[TIME RES] %lf\n", endTime - startTime);
-  	PrintToFile(argv[2], token_number, size, fout);
- /*   int* data = new int[token_number * (size - 1)];
-
-    MPI_Status mpi_status;
-    for(int i(1); i < size; i++)
-    {
-    	MPI_Recv(&data[token_number * (i - 1)], token_number, MPI_INT, i, 0, MPI_COMM_WORLD, &mpi_status);
-    }
-    for(int i(0); i < token_number * (size - 1); ++i)
-    {
-    	PrintNumber(data[i]);
-    }
-    std::cout << std::endl;
-    delete[] data;*/
+  		PrintToFile(argv[2], token_number, size, fout);
+  		double endTime = MPI_Wtime();
+  		double time = endTime - startTime;
+  		printf("rank[%d]: %lf\n", rank, time);
   }
 
   MPI_Finalize();
@@ -140,7 +128,7 @@ void PrintToFile(char* filename, const int token_number, const int size, std::of
 
 // -----------------------------------------------------------------------------------------------------
 
-void* RootRoutine(int size, status_t status, double & startTime, Numbers* numbers, int token_number)
+double RootRoutine(int size, status_t status, Numbers* numbers, int token_number)
 {
 	// Root branch
     // Send status of arguments
@@ -148,20 +136,12 @@ void* RootRoutine(int size, status_t status, double & startTime, Numbers* number
     MPI_Bcast(&status, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
 
-    for(int i(0); i < size - 1; ++i)
+    /*for(int i(0); i < size - 1; ++i)
 		for(int j(0); j < token_number; ++j)
 		{
 			std::cout << numbers[i].first[j] << " " << numbers[i].second[j] << std::endl;
-		}
+		}*/
 
-
-    // MPI_Scatter(first, 2, MPI_INT, NULL, 0, MPI_INT, 0, MPI_COMM_WORLD);
-	/*int * send_container = new int[2 * token_number];
-
-	for(int i(0), j(0); i < token_number; ++i, j += 2)
-	{
-		send_container[i] = numbers[i].first[]
-	}*/
     for(int i(1); i < size; ++i)
     {
     	MPI_Send(&token_number, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
@@ -169,12 +149,10 @@ void* RootRoutine(int size, status_t status, double & startTime, Numbers* number
     	MPI_Send(numbers[i - 1].second, token_number, MPI_INT, i, 0, MPI_COMM_WORLD);
     	// MPI_Send(&token_number, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
     }
-    
 
-    // Send tasks for work begin
-    startTime = MPI_Wtime();
-    // MPI_Scatter(taskShedule, 2, MPI_INT, &localTask, 2, MPI_INT, 0, MPI_COMM_WORLD);
-    return NULL;//taskShedule;
+    
+   
+    return 0;
 }
 
 // -----------------------------------------------------------------------------------------------------
@@ -208,7 +186,7 @@ void switch_path(int rank, int size, int * first, int* second, int token_number)
 
 // -----------------------------------------------------------------------------------------------------
 
-int SlaveRoutine(int rank, int size, std::ofstream & fout)
+double SlaveRoutine(int rank, int size, std::ofstream & fout)
 {
 	status_t status = FAIL;
 	
@@ -243,7 +221,7 @@ int SlaveRoutine(int rank, int size, std::ofstream & fout)
     		MPI_Send(sum, token_number, MPI_INT, ROOT, 0, MPI_COMM_WORLD);
     	} else if(rank == 1){ // last worker
     	// just recv from prev and snd to root
-    		// std::cout << "I'm here! rank = " << rank << std::endl;
+    		
     		speculative_sum = new int[token_number];
     		if(token_number == 1)
     		{
@@ -260,20 +238,16 @@ int SlaveRoutine(int rank, int size, std::ofstream & fout)
     		if(digit_transfer_prev == 0)
     		{
     			MPI_Send(sum, token_number, MPI_INT, ROOT, 0, MPI_COMM_WORLD);
-    			// std::cout << "digit_transfer_prev == 0\n";
     		}
     		else
     		{
-    			// std::cout << "digit_transfer_prev == 1\n";
     			fout << "1";
     			MPI_Send(speculative_sum, token_number, MPI_INT, ROOT, 0, MPI_COMM_WORLD);
     		}
     		delete[] speculative_sum;
     	} else{ // recv from prev, choose the path and send to next & root
-    		// std::cout << "I'm here!\n";
     		speculative_sum = new int[token_number];
     		int digit_transfer_speculative(0);
-    		// std::cout << "token_num = " << token_number << std::endl;
 
     		if(token_number == 1)
     		{
@@ -306,7 +280,6 @@ int SlaveRoutine(int rank, int size, std::ofstream & fout)
     }
     else
     {
-    	// std::cout << "I'm here! rank = " << rank << std::endl;
     	int digit_transfer = CalculateSum(first, second, sum, token_number);
     	if((rank == 1) && digit_transfer)
     		fout << "1";
@@ -338,7 +311,6 @@ int CalculateSum(int * first, int* second, int* total_sum, int token_number)
 	for(int i(token_number - 1); i >= 0; --i)
 	{
 		int local_sum = first[i] + second[i] + digit_transfer;
-		// std::cout << "local_sum = " << local_sum << std::endl;
 		if(local_sum > MAX_TOKEN_VALUE)
 		{
 			digit_transfer = 1;
@@ -365,7 +337,7 @@ int ReadNumbers(char* in, int size, Numbers** numbers_)
 
 	fin.close();
 
-	std::cout << length << std::endl << s_first << std::endl << s_second << std::endl;
+	// std::cout << length << std::endl << s_first << std::endl << s_second << std::endl;
 	int token_size = length / (size - 1);
 	int token_number = token_size / TOKEN_SIZE;
 
@@ -373,7 +345,7 @@ int ReadNumbers(char* in, int size, Numbers** numbers_)
 	for(int i(0); i < size - 1; ++i)
 		numbers[i] = Numbers(token_number);
 
-	std::cout << "token_size = " << token_size << " token_num = " << token_number << std::endl;
+	// std::cout << "token_size = " << token_size << " token_num = " << token_number << std::endl;
 
 	for(int i(0); i < size - 1; ++i)
 	{
