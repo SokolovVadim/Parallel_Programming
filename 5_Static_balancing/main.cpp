@@ -44,7 +44,7 @@ void*    RootRoutine (int size, status_t status, double & startTime, Numbers* nu
 int      SlaveRoutine(int rank, int size);
 int  	 ReadNumbers (char* in, int size, Numbers** numbers);
 int 	 CalculateSum(int * first, int* second, int* total_sum, int token_number);
-
+void PrintNumber(const int number);
 
 // -----------------------------------------------------------------------------------------------------
 
@@ -107,12 +107,7 @@ int main(int argc, char* argv[])
     }
     for(int i(0); i < token_number * (size - 1); ++i)
     {
-    	if(data[i] == 0)
-    	{
-    		std::cout << "000000000";
-    	}
-    	else
-    		std::cout << data[i];
+    	PrintNumber(data[i]);
     }
     std::cout << std::endl;
     delete[] data;
@@ -159,6 +154,19 @@ void* RootRoutine(int size, status_t status, double & startTime, Numbers* number
     startTime = MPI_Wtime();
     // MPI_Scatter(taskShedule, 2, MPI_INT, &localTask, 2, MPI_INT, 0, MPI_COMM_WORLD);
     return NULL;//taskShedule;
+}
+
+// -----------------------------------------------------------------------------------------------------
+
+void PrintNumber(const int number)
+{
+	auto s_out = std::to_string(number);
+	int diff = TOKEN_SIZE - s_out.length();
+	for(int i(0); i < diff; ++i)
+	{
+		s_out = '0' + s_out;
+	}
+	std::cout << s_out;
 }
 
 // -----------------------------------------------------------------------------------------------------
@@ -231,27 +239,37 @@ int SlaveRoutine(int rank, int size)
     	// just recv from prev and snd to root
     		// std::cout << "I'm here! rank = " << rank << std::endl;
     		speculative_sum = new int[token_number];
-    		// AddOne(first, second, sum, token_number);
-    		// first[token_number - 1] = 0; 
-    		/*int digit_transfer_speculative = */CalculateSum(first, second, speculative_sum, token_number);
+    		int digit_transfer_speculative(0); 
+    		if(token_number == 1)
+    		{
+    			speculative_sum[token_number - 1] = 0;
+    			digit_transfer_speculative = 1;
+    		}
+    		else
+    		{
+    			speculative_sum[token_number - 2] = 1;
+    			digit_transfer_speculative = CalculateSum(first, second, speculative_sum, token_number);
+    			speculative_sum[token_number - 1] = 0;
+    		}
     		int digit_transfer_prev(0);
     		MPI_Recv(&digit_transfer_prev, 1, MPI_INT, rank + 1, 0, MPI_COMM_WORLD, &mpi_status);
     		if(digit_transfer_prev == 0)
     		{
     			MPI_Send(sum, token_number, MPI_INT, ROOT, 0, MPI_COMM_WORLD);
-    			std::cout << "digit_transfer_prev == 0\n";
+    			// std::cout << "digit_transfer_prev == 0\n";
     		}
     		else
     		{
-    			std::cout << "digit_transfer_prev == 1\n";
+    			// std::cout << "digit_transfer_prev == 1\n";
+    			std::cout << "1";
     			MPI_Send(speculative_sum, token_number, MPI_INT, ROOT, 0, MPI_COMM_WORLD);
     		}
     		delete[] speculative_sum;
     	} else{ // recv from prev, choose the path and send to next & root
-    		std::cout << "I'm here!\n";
+    		// std::cout << "I'm here!\n";
     		speculative_sum = new int[token_number];
     		int digit_transfer_speculative(0);
-    		std::cout << "token_num = " << token_number << std::endl;
+    		// std::cout << "token_num = " << token_number << std::endl;
 
     		if(token_number == 1)
     		{
@@ -284,8 +302,10 @@ int SlaveRoutine(int rank, int size)
     }
     else
     {
-    	std::cout << "I'm here! rank = " << rank << std::endl;
+    	// std::cout << "I'm here! rank = " << rank << std::endl;
     	int digit_transfer = CalculateSum(first, second, sum, token_number);
+    	if(rank == 1)
+    		std::cout << "1";
     	if(rank != 1)
     		MPI_Send(&digit_transfer, 1, MPI_INT, rank - 1, 0, MPI_COMM_WORLD);
     	int digit_transfer_prev(0);
