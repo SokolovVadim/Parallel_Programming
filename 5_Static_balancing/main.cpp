@@ -215,49 +215,62 @@ int SlaveRoutine(int rank, int size)
     if(first[token_number - 1] + second[token_number - 1] == MAX_TOKEN_VALUE) // speculative case
     {
     	int digit_transfer = CalculateSum(first, second, sum, token_number);
-    	if(rank == 1){  // first worker
+    	if(rank == size - 1){  // first worker
     		// just snd to next and to root, no need for speculative calculations
-    		MPI_Send(&digit_transfer, 1, MPI_INT, rank + 1, 0, MPI_COMM_WORLD);
-    		MPI_Send(sum, token_number, MPI_INT, 0, 0, MPI_COMM_WORLD);
-    	} else if(rank == size - 1){ // last worker
+    		MPI_Send(&digit_transfer, 1, MPI_INT, rank - 1, 0, MPI_COMM_WORLD);
+    		// MPI_Send(sum, token_number, MPI_INT, 0, 0, MPI_COMM_WORLD);
+    	} else if(rank == 1){ // last worker
     	// just recv from prev and snd to root
+    		// std::cout << "I'm here! rank = " << rank << std::endl;
     		speculative_sum = new int[token_number];
-    		AddOne(first, second, sum, token_number);
+    		// AddOne(first, second, sum, token_number);
     		// first[token_number - 1] = 0; 
     		int digit_transfer_speculative = CalculateSum(first, second, speculative_sum, token_number);
     		int digit_transfer_prev(0);
-    		MPI_Recv(&digit_transfer_prev, 1, MPI_INT, rank - 1, 0, MPI_COMM_WORLD, &mpi_status);
+    		MPI_Recv(&digit_transfer_prev, 1, MPI_INT, rank + 1, 0, MPI_COMM_WORLD, &mpi_status);
     		if(digit_transfer_prev == 0)
     		{
-    			MPI_Send(sum, token_number, MPI_INT, 0, 0, MPI_COMM_WORLD);
+    			// MPI_Send(sum, token_number, MPI_INT, 0, 0, MPI_COMM_WORLD);
+    			std::cout << "digit_transfer_prev == 0\n";
     		}
     		else
     		{
-    			MPI_Send(speculative_sum, token_number, MPI_INT, 0, 0, MPI_COMM_WORLD);
+    			std::cout << "digit_transfer_prev == 1\n";
+    			// MPI_Send(speculative_sum, token_number, MPI_INT, 0, 0, MPI_COMM_WORLD);
     		}
     		delete[] speculative_sum;
     	} else{ // recv from prev, choose the path and send to next & root
     		speculative_sum = new int[token_number];
     		first[token_number - 1] = 0; 
+    		second[token_number - 1] = 0;
     		int digit_transfer_speculative = CalculateSum(first, second, speculative_sum, token_number);
     		int digit_transfer_prev(0);
-    		MPI_Recv(&digit_transfer_prev, 1, MPI_INT, rank - 1, 0, MPI_COMM_WORLD, &mpi_status);
+    		MPI_Recv(&digit_transfer_prev, 1, MPI_INT, rank + 1, 0, MPI_COMM_WORLD, &mpi_status);
     		if(digit_transfer_prev == 0)
     		{
-    			MPI_Send(&digit_transfer, 1, MPI_INT, rank + 1, 0, MPI_COMM_WORLD);
-    			MPI_Send(sum, token_number, MPI_INT, 0, 0, MPI_COMM_WORLD);
+    			MPI_Send(&digit_transfer, 1, MPI_INT, rank - 1, 0, MPI_COMM_WORLD);
+    			// MPI_Send(sum, token_number, MPI_INT, 0, 0, MPI_COMM_WORLD);
     		}
     		else
     		{
-    			MPI_Send(&digit_transfer_speculative, 1, MPI_INT, rank + 1, 0, MPI_COMM_WORLD);
-    			MPI_Send(speculative_sum, token_number, MPI_INT, 0, 0, MPI_COMM_WORLD);
+    			MPI_Send(&digit_transfer_speculative, 1, MPI_INT, rank - 1, 0, MPI_COMM_WORLD);
+    			// MPI_Send(speculative_sum, token_number, MPI_INT, 0, 0, MPI_COMM_WORLD);
     		}
     		delete[] speculative_sum;
     	}
     }
     else
     {
-    	CalculateSum(first, second, sum, token_number);
+    	std::cout << "I'm here! rank = " << rank << std::endl;
+    	int digit_transfer = CalculateSum(first, second, sum, token_number);
+    	if(rank != 1)
+    		MPI_Send(&digit_transfer, 1, MPI_INT, rank - 1, 0, MPI_COMM_WORLD);
+    	int digit_transfer_prev(0);
+    	if(rank != size - 1)
+    		MPI_Recv(&digit_transfer_prev, 1, MPI_INT, rank + 1, 0, MPI_COMM_WORLD, &mpi_status);
+    	
+    	sum[token_number - 1] += digit_transfer_prev;
+    	
     }
 
     /*CalculateSum(first, second, sum, token_number);*/
@@ -284,12 +297,12 @@ int CalculateSum(int * first, int* second, int* total_sum, int token_number)
 		if(local_sum > MAX_TOKEN_VALUE)
 		{
 			digit_transfer = 1;
-			total_sum[i] = local_sum - (MAX_TOKEN_VALUE + 1);
+			total_sum[i] += local_sum - (MAX_TOKEN_VALUE + 1);
 		}
 		else
 		{
 			digit_transfer = 0;
-			total_sum[i] = local_sum;
+			total_sum[i] += local_sum;
 		}
 	}
 	return digit_transfer;
