@@ -1,4 +1,5 @@
 #include <iostream>
+#include <fstream>
 #include <mpi.h>
 
 enum TOKEN
@@ -16,21 +17,21 @@ enum Status_t
 };
 
 struct Numbers{
-	int* first;
-	int* second;
-	Numbers() {}
-	Numbers(int size)
-	{
-		first  = new int[size];
-		second = new int[size];
-	}
+	int first;
+	int second;
+	int digit_transfer;
+	Numbers():
+		first(0),
+		second(0),
+		digit_transfer(0)
+	{}
 };
 
-int ReadNumbers(char* in, int size, Numbers** numbers_);
+int ReadNumbers(char* in, int size);
 	
 int main(int argc, char* argv[])
 {
-	Numbers* numbers(nullptr);
+	// Numbers* numbers(nullptr);
 	int error = MPI_Init(&argc, &argv);
   	if(error)
 		std::cerr << "MPI_Init crashed" << std::endl;
@@ -54,7 +55,7 @@ int main(int argc, char* argv[])
 		arg_status = OK;
 		MPI_Bcast(&arg_status, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
-		ReadNumbers(argv[1], size, &numbers);
+		ReadNumbers(argv[1], size);
     	// RootRoutine(size, status, numbers, token_number);
 	}
 	else // Worker
@@ -71,7 +72,35 @@ int main(int argc, char* argv[])
 	return 0;
 }
 
-int ReadNumbers(char* in, int size, Numbers** numbers_)
+int ReadNumbers(char* in, int size)
 {
+	// Open the stream and read size of number
+	// and two lines with two numbers
+	std::ifstream fin(in);
+	int num_length(0);
+	std::string s_first, s_second;
+
+	fin >> num_length >> s_first >> s_second;
+
+	fin.close();
+
+	// Allocate memory for num_length tokens
+
+	Numbers* numbers = new Numbers[num_length];
+
+	for(int i(0); i < num_length / TOKEN_SIZE; i++)
+	{
+		std::string s_token = s_first.substr(i * TOKEN_SIZE, TOKEN_SIZE);
+		numbers[i].first = std::stoi(s_token);
+
+		s_token = s_second.substr(i * TOKEN_SIZE, TOKEN_SIZE);
+		numbers[i].second = std::stoi(s_token);
+	}
+
+	for(int i(0); i < num_length / TOKEN_SIZE; ++i)
+	{
+		std::cout << numbers[i].first << " " << numbers[i].second << std::endl;
+	}
+
 	return 0;
 }
