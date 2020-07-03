@@ -20,6 +20,7 @@ struct Numbers{
 	int first;
 	int second;
 	int digit_transfer;
+
 	Numbers():
 		first(0),
 		second(0),
@@ -27,11 +28,13 @@ struct Numbers{
 	{}
 };
 
-int ReadNumbers(char* in, int size);
+int ReadNumbers(char* in, int size, Numbers** numbers_);
+void RootRoutine(int size, Numbers* numbers, int token_number);
+void ClientRoutine();
 	
 int main(int argc, char* argv[])
 {
-	// Numbers* numbers(nullptr);
+	Numbers* numbers(nullptr);
 	int error = MPI_Init(&argc, &argv);
   	if(error)
 		std::cerr << "MPI_Init crashed" << std::endl;
@@ -55,8 +58,9 @@ int main(int argc, char* argv[])
 		arg_status = OK;
 		MPI_Bcast(&arg_status, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
-		ReadNumbers(argv[1], size);
-    	// RootRoutine(size, status, numbers, token_number);
+		int token_number = ReadNumbers(argv[1], size, &numbers);
+    	RootRoutine(size, numbers, token_number);
+    	delete[] numbers;
 	}
 	else // Worker
 	{
@@ -66,13 +70,36 @@ int main(int argc, char* argv[])
 			MPI_Finalize();
 			return EXIT_FAILURE;
 		}
+		ClientRoutine();
 	}
 
 	MPI_Finalize();
 	return 0;
 }
 
-int ReadNumbers(char* in, int size)
+void RootRoutine(int size, Numbers* numbers, int token_number)
+{
+	
+	for(int i(1); i < token_number; ++i)
+	{
+		// MPI_Send(&token_number, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
+    	MPI_Send(&numbers[i - 1].first,  1, MPI_INT, i, 0, MPI_COMM_WORLD);
+    	MPI_Send(&numbers[i - 1].second, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
+    	// MPI_Send(numbers[i - 1].digit_transfer, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
+	}
+
+}
+
+void ClientRoutine()
+{
+	MPI_Status mpi_status = {};
+	int first(0), second(0);//, digit_transfer(0);
+	MPI_Recv(&first, 1,  MPI_INT, ROOT, 0, MPI_COMM_WORLD, &mpi_status);
+	MPI_Recv(&second, 1,  MPI_INT, ROOT, 0, MPI_COMM_WORLD, &mpi_status);
+	//MPI_Recv(digit_transfer, 1,  MPI_INT, ROOT, 0, MPI_COMM_WORLD, &mpi_status);
+}
+
+int ReadNumbers(char* in, int size, Numbers** numbers_)
 {
 	// Open the stream and read size of number
 	// and two lines with two numbers
@@ -102,5 +129,7 @@ int ReadNumbers(char* in, int size)
 		std::cout << numbers[i].first << " " << numbers[i].second << std::endl;
 	}
 
-	return 0;
+	*numbers_ = numbers;
+
+	return num_length / TOKEN_SIZE;
 }
