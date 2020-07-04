@@ -6,7 +6,9 @@
 enum TOKEN
 {
 	TOKEN_SIZE = 9,
-	MAX_TOKEN_VALUE = 999999999
+	MAX_TOKEN_VALUE = 999999999,
+	DIGIT_TRANSFER = 1,
+	NO_DIGIT_TRANSFER = 0
 };
 
 enum { ROOT = 0 };
@@ -20,11 +22,13 @@ enum Status_t
 struct Numbers{
 	int first;
 	int second;
+	int sum;
 	int digit_transfer;
 
 	Numbers():
 		first(0),
 		second(0),
+		sum(0),
 		digit_transfer(0)
 	{}
 };
@@ -48,7 +52,6 @@ int main(int argc, char* argv[])
 
 	if(rank == ROOT) // Root
 	{
-		std::cout << "rank == 0!" << std::endl;
 		if(argc != 3)
 		{
 			arg_status = FAIL;
@@ -78,39 +81,42 @@ int main(int argc, char* argv[])
 	return 0;
 }
 
+int Calculate_sum(int first, int second)
+{
+	return first + second;
+}
+
 void RootRoutine(int size, Numbers* numbers, int token_number)
 {
-	//int process_worked(0);
 	int number_of_iterations = token_number / (size - 1);
-	std::cout << "token_number = " << token_number << " size = " << size << std::endl;
+	MPI_Status mpi_status = {};
+	// std::cout << "token_number = " << token_number << " size = " << size << std::endl;
 	int i(0);
 	for(i = 1; i < size; ++i)
 	{
 		MPI_Send(&number_of_iterations,  1, MPI_INT, i, OK, MPI_COMM_WORLD);
-		MPI_Send(&numbers[i - 1].first,  1, MPI_INT, i, OK, MPI_COMM_WORLD);
-    	MPI_Send(&numbers[i - 1].second, 1, MPI_INT, i, OK, MPI_COMM_WORLD);
 	}
-	while(number_of_iterations > 1)
+	int array_index(0);
+	while(number_of_iterations >= 1)
 	{
 		for(i = 1; i < size; ++i)
 		{
-			std::cout << "process " << i << " started it's job\n";
-			MPI_Send(&number_of_iterations,  1, MPI_INT, i, OK, MPI_COMM_WORLD);
+			// std::cout << "process " << i << " started it's job\n";
+			int sum(0);
 			MPI_Send(&numbers[i - 1].first,  1, MPI_INT, i, OK, MPI_COMM_WORLD);
 	    	MPI_Send(&numbers[i - 1].second, 1, MPI_INT, i, OK, MPI_COMM_WORLD);
+	    	MPI_Recv(&sum, 1, MPI_INT, i, 0, MPI_COMM_WORLD, &mpi_status);
+	    	std::cout << "sum = " << sum << std::endl;
+	    	numbers[array_index].sum = sum;
+	    	array_index++;
 		}
     	number_of_iterations--;
 	}
-	/*int status(0);
-	do
+	std::cout << "SUM:\n";
+	for(int i(0); i < token_number; ++i)
 	{
-		status = (process_worked + 1 >= size ? FAIL: OK);
-		std::cout << "process " << process_worked + 1 << " started it's job with status "
-		 << status << " pw + 1 % size = " << (process_worked + 1) % size << std::endl;
-		MPI_Send(&numbers[process_worked].first,  1, MPI_INT, (process_worked + 1) % size, status, MPI_COMM_WORLD);
-    	MPI_Send(&numbers[process_worked].second, 1, MPI_INT, (process_worked + 1) % size, status, MPI_COMM_WORLD);
-    	process_worked++;
-	} while(process_worked != token_number);*/
+		std::cout << numbers[i].sum << std::endl;
+	}
 }
 
 void ClientRoutine(int rank)
@@ -124,12 +130,9 @@ void ClientRoutine(int rank)
 	{
 		MPI_Recv(&first, 1,  MPI_INT, ROOT, 0, MPI_COMM_WORLD, &mpi_status);
 		MPI_Recv(&second, 1,  MPI_INT, ROOT, 0, MPI_COMM_WORLD, &mpi_status);
-		std::cout << "process " << rank << std::endl;
-/*		if(mpi_status.MPI_SOURCE == FAIL)
-		{
-			std::cout << counter;
-			break;
-		}*/
+		int sum = Calculate_sum(first, second);
+		MPI_Send(&sum, 1, MPI_INT, ROOT, OK, MPI_COMM_WORLD);
+		// std::cout << "process " << rank << std::endl;
 		counter++;
 		number_of_iterations--;
 	}
