@@ -102,17 +102,22 @@ void RootRoutine(int size, Numbers* numbers, int token_number)
 		for(i = 1; i < size; ++i)
 		{
 			// std::cout << "process " << i << " started it's job\n";
+			// Send two numbers to process i and return the sum of them
 			int sum(0);
 			MPI_Send(&numbers[i - 1].first,  1, MPI_INT, i, OK, MPI_COMM_WORLD);
 	    	MPI_Send(&numbers[i - 1].second, 1, MPI_INT, i, OK, MPI_COMM_WORLD);
 	    	MPI_Recv(&sum, 1, MPI_INT, i, 0, MPI_COMM_WORLD, &mpi_status);
 	    	std::cout << "sum = " << sum << std::endl;
+
 	    	numbers[array_index].sum = sum;
+	    	numbers[array_index].digit_transfer = (sum > MAX_TOKEN_VALUE) ? DIGIT_TRANSFER: NO_DIGIT_TRANSFER;
+
 	    	array_index++;
 		}
     	number_of_iterations--;
 	}
 	std::cout << "SUM:\n";
+	
 	for(int i(0); i < token_number; ++i)
 	{
 		std::cout << numbers[i].sum << std::endl;
