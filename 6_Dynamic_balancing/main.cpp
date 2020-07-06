@@ -35,7 +35,7 @@ struct Numbers{
 
 int ReadNumbers(char* in, int size, Numbers** numbers_);
 void RootRoutine(int size, Numbers* numbers, int token_number, MPI_Datatype& mpi_numbers_type);
-void ClientRoutine(int rank);
+void ClientRoutine(int rank, MPI_Datatype& mpi_numbers_type);
 	
 int main(int argc, char* argv[])
 {
@@ -63,6 +63,7 @@ int main(int argc, char* argv[])
 	offsets[3] = offsetof(Numbers, digit_transfer);
 
 	MPI_Type_create_struct(nitems, blocklength, offsets, types, &mpi_numbers_type);
+	MPI_Type_commit(&mpi_numbers_type);
 
 	if(rank == ROOT) // Root
 	{
@@ -88,7 +89,7 @@ int main(int argc, char* argv[])
 			MPI_Finalize();
 			return EXIT_FAILURE;
 		}
-		ClientRoutine(rank);
+		ClientRoutine(rank, mpi_numbers_type);
 	}
 	MPI_Type_free(&mpi_numbers_type);
 	MPI_Finalize();
@@ -123,14 +124,16 @@ void RootRoutine(int size, Numbers* numbers, int token_number, MPI_Datatype& mpi
 			// std::cout << "process " << i << " started it's job\n";
 			// Send two numbers to process i and return the sum of them
 			int sum(0);
-			MPI_Send(&numbers[array_index].first,  1, MPI_INT, i, OK, MPI_COMM_WORLD);
+			/*MPI_Send(&numbers[array_index].first,  1, MPI_INT, i, OK, MPI_COMM_WORLD);
 	    	MPI_Send(&numbers[array_index].second, 1, MPI_INT, i, OK, MPI_COMM_WORLD);
-	    	MPI_Recv(&sum, 1, MPI_INT, i, 0, MPI_COMM_WORLD, &mpi_status);
-	    	std::cout << "sum = " << sum << std::endl;
+	    	MPI_Recv(&sum, 1, MPI_INT, i, 0, MPI_COMM_WORLD, &mpi_status);*/
+	    	MPI_Send(&numbers[array_index], 1, mpi_numbers_type, i, OK, MPI_COMM_WORLD);
+	    	MPI_Recv(&numbers[array_index], 1, mpi_numbers_type, i, 0, MPI_COMM_WORLD, &mpi_status);
+	    	std::cout << "sum = " << numbers[array_index].sum << std::endl;
 
 	    	// fill the Numbers with sum and digit_transfer fields
-	    	numbers[array_index].sum = sum;
-	    	numbers[array_index].digit_transfer = (numbers[array_index].first + numbers[array_index].second > MAX_TOKEN_VALUE) ? DIGIT_TRANSFER: NO_DIGIT_TRANSFER;
+	    	// numbers[array_index].sum = sum;
+	    	// numbers[array_index].digit_transfer = (numbers[array_index].first + numbers[array_index].second > MAX_TOKEN_VALUE) ? DIGIT_TRANSFER: NO_DIGIT_TRANSFER;
 
 	    	array_index--;
 		}
@@ -144,7 +147,7 @@ void RootRoutine(int size, Numbers* numbers, int token_number, MPI_Datatype& mpi
 	}
 }
 
-void ClientRoutine(int rank)
+void ClientRoutine(int rank, MPI_Datatype& mpi_numbers_type)
 {
 	MPI_Status mpi_status = {};
 	int first(0), second(0);//, digit_transfer(0);
@@ -153,10 +156,14 @@ void ClientRoutine(int rank)
 	MPI_Recv(&number_of_iterations, 1,  MPI_INT, ROOT, 0, MPI_COMM_WORLD, &mpi_status);
 	while(number_of_iterations != 0)
 	{
-		MPI_Recv(&first, 1,  MPI_INT, ROOT, 0, MPI_COMM_WORLD, &mpi_status);
-		MPI_Recv(&second, 1,  MPI_INT, ROOT, 0, MPI_COMM_WORLD, &mpi_status);
-		int sum = Calculate_sum(first, second);
-		MPI_Send(&sum, 1, MPI_INT, ROOT, OK, MPI_COMM_WORLD);
+		Numbers number;
+		/*MPI_Recv(&first, 1,  MPI_INT, ROOT, 0, MPI_COMM_WORLD, &mpi_status);
+		MPI_Recv(&second, 1,  MPI_INT, ROOT, 0, MPI_COMM_WORLD, &mpi_status);*/
+		MPI_Recv(&number, 1, mpi_numbers_type, ROOT, 0, MPI_COMM_WORLD, &mpi_status);
+		int sum = Calculate_sum(number.first, number.second);
+		number.sum = sum;
+		MPI_Send(&number, 1, mpi_numbers_type, ROOT, OK, MPI_COMM_WORLD);
+		// MPI_Send(&sum, 1, MPI_INT, ROOT, OK, MPI_COMM_WORLD);
 		// std::cout << "process " << rank << std::endl;
 		counter++;
 		number_of_iterations--;
