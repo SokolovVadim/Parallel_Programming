@@ -34,7 +34,7 @@ struct Numbers{
 };
 
 int ReadNumbers(char* in, int size, Numbers** numbers_);
-void RootRoutine(int size, Numbers* numbers, int token_number);
+void RootRoutine(int size, Numbers* numbers, int token_number, MPI_Datatype& mpi_numbers_type);
 void ClientRoutine(int rank);
 	
 int main(int argc, char* argv[])
@@ -50,6 +50,20 @@ int main(int argc, char* argv[])
 	MPI_Comm_size(MPI_COMM_WORLD, &size);
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
+	// Create a type for struct Numbers
+
+	int nitems = 4;
+	int blocklength[4] = {1, 1, 1, 1};
+	MPI_Datatype types[4] = {MPI_INT, MPI_INT, MPI_INT, MPI_INT};
+	MPI_Datatype mpi_numbers_type;
+	MPI_Aint offsets[4];
+	offsets[0] = offsetof(Numbers, first);
+	offsets[1] = offsetof(Numbers, second);
+	offsets[2] = offsetof(Numbers, sum);
+	offsets[3] = offsetof(Numbers, digit_transfer);
+
+	MPI_Type_create_struct(nitems, blocklength, offsets, types, &mpi_numbers_type);
+
 	if(rank == ROOT) // Root
 	{
 		if(argc != 3)
@@ -63,7 +77,7 @@ int main(int argc, char* argv[])
 		MPI_Bcast(&arg_status, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
 		int token_number = ReadNumbers(argv[1], size, &numbers);
-    	RootRoutine(size, numbers, token_number);
+    	RootRoutine(size, numbers, token_number, mpi_numbers_type);
     	delete[] numbers;
 	}
 	else // Worker
@@ -76,7 +90,7 @@ int main(int argc, char* argv[])
 		}
 		ClientRoutine(rank);
 	}
-
+	MPI_Type_free(&mpi_numbers_type);
 	MPI_Finalize();
 	return 0;
 }
@@ -91,7 +105,7 @@ int Calculate_sum(int first, int second)
 	return sum;
 }
 
-void RootRoutine(int size, Numbers* numbers, int token_number)
+void RootRoutine(int size, Numbers* numbers, int token_number, MPI_Datatype& mpi_numbers_type)
 {
 	int number_of_iterations = token_number / (size - 1);
 	MPI_Status mpi_status = {};
