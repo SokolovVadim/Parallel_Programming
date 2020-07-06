@@ -83,7 +83,12 @@ int main(int argc, char* argv[])
 
 int Calculate_sum(int first, int second)
 {
-	return first + second;
+	int sum = first + second;
+	if(sum > MAX_TOKEN_VALUE)
+	{
+		sum -= (MAX_TOKEN_VALUE + 1);
+	}
+	return sum;
 }
 
 void RootRoutine(int size, Numbers* numbers, int token_number)
@@ -96,31 +101,32 @@ void RootRoutine(int size, Numbers* numbers, int token_number)
 	{
 		MPI_Send(&number_of_iterations,  1, MPI_INT, i, OK, MPI_COMM_WORLD);
 	}
-	int array_index(0);
+	int array_index(token_number - 1);
 	while(number_of_iterations >= 1)
 	{
-		for(i = 1; i < size; ++i)
+		for(i = size - 1; i > 0; i--)
 		{
 			// std::cout << "process " << i << " started it's job\n";
 			// Send two numbers to process i and return the sum of them
 			int sum(0);
-			MPI_Send(&numbers[i - 1].first,  1, MPI_INT, i, OK, MPI_COMM_WORLD);
-	    	MPI_Send(&numbers[i - 1].second, 1, MPI_INT, i, OK, MPI_COMM_WORLD);
+			MPI_Send(&numbers[array_index].first,  1, MPI_INT, i, OK, MPI_COMM_WORLD);
+	    	MPI_Send(&numbers[array_index].second, 1, MPI_INT, i, OK, MPI_COMM_WORLD);
 	    	MPI_Recv(&sum, 1, MPI_INT, i, 0, MPI_COMM_WORLD, &mpi_status);
 	    	std::cout << "sum = " << sum << std::endl;
 
+	    	// fill the Numbers with sum and digit_transfer fields
 	    	numbers[array_index].sum = sum;
-	    	numbers[array_index].digit_transfer = (sum > MAX_TOKEN_VALUE) ? DIGIT_TRANSFER: NO_DIGIT_TRANSFER;
+	    	numbers[array_index].digit_transfer = (numbers[array_index].first + numbers[array_index].second > MAX_TOKEN_VALUE) ? DIGIT_TRANSFER: NO_DIGIT_TRANSFER;
 
-	    	array_index++;
+	    	array_index--;
 		}
     	number_of_iterations--;
 	}
 	std::cout << "SUM:\n";
-	
+
 	for(int i(0); i < token_number; ++i)
 	{
-		std::cout << numbers[i].sum << std::endl;
+		std::cout << numbers[i].sum << " " << numbers[i].digit_transfer << std::endl;
 	}
 }
 
