@@ -3,6 +3,8 @@
 #include <unistd.h>
 #include <mpi.h>
 
+// -----------------------------------------------------------------------------------------------------
+
 enum TOKEN
 {
 	TOKEN_SIZE = 9,
@@ -35,9 +37,14 @@ struct Numbers{
 	{}
 };
 
+// -----------------------------------------------------------------------------------------------------
+
 int ReadNumbers(char* in, int size, Numbers** numbers_);
 void RootRoutine(int size, Numbers* numbers, int token_number, MPI_Datatype& mpi_numbers_type);
 void ClientRoutine(int rank, MPI_Datatype& mpi_numbers_type);
+void PrintNumbers(Numbers* numbers, int token_number, char* out);
+
+// -----------------------------------------------------------------------------------------------------
 	
 int main(int argc, char* argv[])
 {
@@ -82,6 +89,7 @@ int main(int argc, char* argv[])
 
 		int token_number = ReadNumbers(argv[1], size, &numbers);
     	RootRoutine(size, numbers, token_number, mpi_numbers_type);
+    	PrintNumbers(numbers, token_number, argv[2]);
     	delete[] numbers;
 	}
 	else // Worker
@@ -99,6 +107,8 @@ int main(int argc, char* argv[])
 	return 0;
 }
 
+// -----------------------------------------------------------------------------------------------------
+
 // fill the Numbers with sum and digit_transfer fields
 
 int Calculate_sum(Numbers& numbers)
@@ -108,7 +118,8 @@ int Calculate_sum(Numbers& numbers)
 	{
 		numbers.sum = sum;
 		numbers.speculative_sum = 0;
-		numbers.digit_transfer = DIGIT_TRANSFER;
+		numbers.digit_transfer = NO_DIGIT_TRANSFER;
+		// NO_DIGIT_TRANSFER with sum and DIGIT_TRANSFER with speculative_sum
 	} else if(sum > MAX_TOKEN_VALUE)
 	{
 		sum -= (MAX_TOKEN_VALUE + 1);
@@ -120,24 +131,64 @@ int Calculate_sum(Numbers& numbers)
 	return sum;
 }
 
-void print_numbers(Numbers* numbers, int token_number)
+// -----------------------------------------------------------------------------------------------------
+
+std::string NumToStr(const int number)
 {
+	auto s_out = std::to_string(number);
+	int diff = TOKEN_SIZE - s_out.length();
+	for(int i(0); i < diff; ++i)
+	{
+		s_out = '0' + s_out;
+	}
+	return s_out;
+}
+
+// -----------------------------------------------------------------------------------------------------
+
+void PrintNumbers(Numbers* numbers, int token_number, char* out)
+{
+	std::ofstream fout(out);
 	for(int i(0); i < token_number; ++i)
 	{
-		std::cout << numbers[i].sum << " " << numbers[i].digit_transfer << std::endl;
+		if((i == 0) && (numbers[0].digit_transfer == DIGIT_TRANSFER))
+		{
+			fout << "1";
+		}
+		fout << NumToStr(numbers[i].sum);
 	}
+	fout.close();
 }
+
+// -----------------------------------------------------------------------------------------------------
 
 void process_result(Numbers* numbers, int token_number)
 {
-	
+	for(int i(token_number - 1); i >= 0; --i)
+	{
+		if(i != token_number - 1)
+		{
+			if(numbers[i + 1].digit_transfer == DIGIT_TRANSFER)
+			{
+				if(numbers[i].sum == MAX_TOKEN_VALUE)
+				{
+					numbers[i].sum = numbers[i].speculative_sum;
+					numbers[i].digit_transfer = DIGIT_TRANSFER;
+				}
+				else
+					numbers[i].sum++;
+			}
+		}
+	}
 }
+
+// -----------------------------------------------------------------------------------------------------
 
 void RootRoutine(int size, Numbers* numbers, int token_number, MPI_Datatype& mpi_numbers_type)
 {
 	int number_of_iterations = token_number / (size - 1);
 	MPI_Status mpi_status = {};
-	// std::cout << "token_number = " << token_number << " size = " << size << std::endl;
+	
 	int i(0);
 	for(i = 1; i < size; ++i)
 	{
@@ -159,9 +210,10 @@ void RootRoutine(int size, Numbers* numbers, int token_number, MPI_Datatype& mpi
     	number_of_iterations--;
 	}
 	std::cout << "SUM:\n";
-	print_numbers(numbers, token_number);
 	process_result(numbers, token_number);
 }
+
+// -----------------------------------------------------------------------------------------------------
 
 void ClientRoutine(int rank, MPI_Datatype& mpi_numbers_type)
 {
@@ -178,6 +230,8 @@ void ClientRoutine(int rank, MPI_Datatype& mpi_numbers_type)
 		number_of_iterations--;
 	}
 }
+
+// -----------------------------------------------------------------------------------------------------
 
 int ReadNumbers(char* in, int size, Numbers** numbers_)
 {
