@@ -23,13 +23,15 @@ struct Numbers{
 	int first;
 	int second;
 	int sum;
+	int speculative_sum;
 	int digit_transfer;
 
 	Numbers():
 		first(0),
 		second(0),
 		sum(0),
-		digit_transfer(0)
+		speculative_sum(0),
+		digit_transfer(NO_DIGIT_TRANSFER)
 	{}
 };
 
@@ -52,15 +54,16 @@ int main(int argc, char* argv[])
 
 	// Create a type for struct Numbers
 
-	int nitems = 4;
-	int blocklength[4] = {1, 1, 1, 1};
-	MPI_Datatype types[4] = {MPI_INT, MPI_INT, MPI_INT, MPI_INT};
+	int nitems = 5;
+	int blocklength[5] = {1, 1, 1, 1, 1};
+	MPI_Datatype types[5] = {MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_INT};
 	MPI_Datatype mpi_numbers_type;
-	MPI_Aint offsets[4];
+	MPI_Aint offsets[5];
 	offsets[0] = offsetof(Numbers, first);
 	offsets[1] = offsetof(Numbers, second);
 	offsets[2] = offsetof(Numbers, sum);
-	offsets[3] = offsetof(Numbers, digit_transfer);
+	offsets[3] = offsetof(Numbers, speculative_sum);
+	offsets[4] = offsetof(Numbers, digit_transfer);
 
 	MPI_Type_create_struct(nitems, blocklength, offsets, types, &mpi_numbers_type);
 	MPI_Type_commit(&mpi_numbers_type);
@@ -101,12 +104,19 @@ int main(int argc, char* argv[])
 int Calculate_sum(Numbers& numbers)
 {
 	int sum = numbers.first + numbers.second;
-	if(sum > MAX_TOKEN_VALUE)
+	if(sum == MAX_TOKEN_VALUE)
+	{
+		numbers.sum = sum;
+		numbers.speculative_sum = 0;
+		numbers.digit_transfer = DIGIT_TRANSFER;
+	} else if(sum > MAX_TOKEN_VALUE)
 	{
 		sum -= (MAX_TOKEN_VALUE + 1);
+		numbers.sum = sum;
 		numbers.digit_transfer = DIGIT_TRANSFER;
+	} else{
+		numbers.sum = sum;
 	}
-	numbers.sum = sum;
 	return sum;
 }
 
@@ -116,6 +126,11 @@ void print_numbers(Numbers* numbers, int token_number)
 	{
 		std::cout << numbers[i].sum << " " << numbers[i].digit_transfer << std::endl;
 	}
+}
+
+void process_result(Numbers* numbers, int token_number)
+{
+	
 }
 
 void RootRoutine(int size, Numbers* numbers, int token_number, MPI_Datatype& mpi_numbers_type)
@@ -145,6 +160,7 @@ void RootRoutine(int size, Numbers* numbers, int token_number, MPI_Datatype& mpi
 	}
 	std::cout << "SUM:\n";
 	print_numbers(numbers, token_number);
+	process_result(numbers, token_number);
 }
 
 void ClientRoutine(int rank, MPI_Datatype& mpi_numbers_type)
@@ -161,7 +177,6 @@ void ClientRoutine(int rank, MPI_Datatype& mpi_numbers_type)
 		MPI_Send(&numbers, 1, mpi_numbers_type, ROOT, OK, MPI_COMM_WORLD);
 		number_of_iterations--;
 	}
-	//MPI_Recv(digit_transfer, 1,  MPI_INT, ROOT, 0, MPI_COMM_WORLD, &mpi_status);
 }
 
 int ReadNumbers(char* in, int size, Numbers** numbers_)
