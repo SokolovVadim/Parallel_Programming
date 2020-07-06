@@ -33,3 +33,22 @@ Calculate sum of the series via N processes.
 ![task](https://github.com/SokolovVadim/Parallel_Programming/blob/master/4_Series_sum/resources/series.png)
 
 The task is to get the most out of accuracy in calculations according to float data representation standart
+
+## Task 5
+#### Static balancing
+ - Input  
+Program reads from file lenght of two numbers then each number. Numbers are divided into blocks.
+ - Speculative sum  
+Each process performs speculative calculations. Number of blocks is equal to number of processes  
+ - Output  
+ Root process is to gather the result and process numbers in sum.
+![spec](https://github.com/SokolovVadim/Parallel_Programming/blob/master/5_Static_balancing/resources/Speculative.png)
+
+## Task 6
+#### Dynamic balancing
+ - Input  
+Program reads from file lenght of two numbers then each number. Numbers are divided into blocks.
+ - Speculative sum  
+Each process performs speculative calculations. Number of blocks is bigger than number of processes  
+ - Output  
+ Root process is to gather the result and process numbers in sum.
