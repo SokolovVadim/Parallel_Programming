@@ -42,7 +42,7 @@ Program reads from file lenght of two numbers then each number. Numbers are divi
 Each process performs speculative calculations. Number of blocks is equal to number of processes  
  - Output  
  Root process is to gather the result and process numbers in sum.
-![spec](https://github.com/SokolovVadim/Parallel_Programming/blob/master/5_Static_balancing/resources/Speculative.png)
+![spec](https://github.com/SokolovVadim/Parallel_Programming/blob/master/05_Static_balancing/resources/Speculative.png)
 
 ## Task 6
 #### Dynamic balancing
@@ -52,3 +52,23 @@ Program reads from file lenght of two numbers then each number. Numbers are divi
 Each process performs speculative calculations. Number of blocks is bigger than number of processes  
  - Output  
  Root process is to gather the result and process numbers in sum.
+ 
+ # Fall Semester
+ 
+ ## Task 0
+ #### Hello world
+ ```
+ make hello
+ ./hello.out
+ ```
+ ## Task 1
+ #### Heat map
+ 
+ Build Heat map of processes  
+ - Axis X is supposed to interpret external process number  
+ - Axis Y is supposed to interpret internal process number
+ ```
+ make heatmap
+ /usr/bin/python script.py
+ ```
+ ![spec](https://github.com/SokolovVadim/Parallel_Programming/blob/master/11_HeatMap/resourses/Heatmap.png)
